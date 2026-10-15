@@ -1,0 +1,22 @@
+[Unit]
+Description=NEON GRID game server
+After=network.target
+
+[Service]
+Type=simple
+User=neongrid
+Group=neongrid
+WorkingDirectory=/opt/neongrid/server
+ExecStart=/opt/neongrid/.venv/bin/python server.py --host 127.0.0.1 --port 8765 --db /var/lib/neongrid/neongrid.sqlite3
+Restart=on-failure
+RestartSec=3
+
+# hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/neongrid
+
+[Install]
+WantedBy=multi-user.target

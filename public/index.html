@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEON GRID</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="bg" aria-hidden="true"></div>
+
+<header class="top">
+  <h1 class="logo">NEON<span>GRID</span></h1>
+  <p class="tagline">Light-cycle duels · 1 vs 1</p>
+</header>
+
+<main id="start" class="start">
+  <!-- Login / register -->
+  <section id="screen-auth" class="panel">
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab active" data-mode="login" role="tab">Login</button>
+      <button type="button" class="tab" data-mode="register" role="tab">New account</button>
+    </div>
+    <form id="auth-form" autocomplete="on">
+      <label>Username
+        <input id="auth-user" name="username" required minlength="3" maxlength="16"
+               pattern="[A-Za-z0-9_\-]{3,16}" autocomplete="username">
+      </label>
+      <label>Password
+        <input id="auth-pass" name="password" type="password" required minlength="6"
+               maxlength="128" autocomplete="current-password">
+      </label>
+      <label id="confirm-row" hidden>Repeat password
+        <input id="auth-pass2" type="password" minlength="6" maxlength="128"
+               autocomplete="new-password">
+      </label>
+      <p id="auth-error" class="error" role="alert"></p>
+      <button id="auth-submit" class="btn primary" type="submit">Log in</button>
+    </form>
+  </section>
+
+  <!-- Logged in -->
+  <section id="screen-menu" class="panel" hidden>
+    <p class="welcome">Welcome, <strong id="menu-name"></strong></p>
+    <div class="stats">
+      <div><span id="st-wins">0</span>Wins</div>
+      <div><span id="st-losses">0</span>Losses</div>
+      <div><span id="st-draws">0</span>Draws</div>
+      <div><span id="st-played">0</span>Matches</div>
+    </div>
+    <button id="btn-play" class="btn primary big" type="button">Enter the grid</button>
+    <p id="menu-msg" class="error" role="alert"></p>
+    <button id="btn-logout" class="btn link" type="button">Log out</button>
+  </section>
+
+  <!-- Waiting for opponent -->
+  <section id="screen-wait" class="panel" hidden>
+    <div class="spinner" aria-hidden="true"></div>
+    <p class="waiting">Waiting for an opponent…</p>
+    <p class="muted">The match starts as soon as a second player enters the grid.</p>
+    <button id="btn-cancel" class="btn" type="button">Cancel</button>
+  </section>
+
+  <!-- Highscores -->
+  <aside class="panel scores">
+    <h2>Highscores</h2>
+    <table>
+      <thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>D</th><th>Matches</th></tr></thead>
+      <tbody id="score-body"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+    </table>
+    <p class="muted total">Matches played on the grid: <strong id="total-matches">–</strong></p>
+  </aside>
+</main>
+
+<!-- Game -->
+<section id="screen-game" class="game" hidden>
+  <div class="hud">
+    <div class="pl p0"><span class="dot"></span><span id="hud-p0"></span></div>
+    <div class="vs">VS</div>
+    <div class="pl p1"><span id="hud-p1"></span><span class="dot"></span></div>
+  </div>
+  <div id="arena" class="arena">
+    <canvas id="glow"></canvas>
+    <canvas id="trails"></canvas>
+    <canvas id="fx"></canvas>
+    <div id="overlay" class="overlay">
+      <div id="ov-big" class="ov-big"></div>
+      <div id="ov-sub" class="ov-sub"></div>
+      <div id="ov-buttons" class="ov-buttons" hidden>
+        <button id="btn-again" class="btn primary" type="button">Play again</button>
+        <button id="btn-menu" class="btn" type="button">Menu</button>
+      </div>
+    </div>
+  </div>
+  <p class="hint">Steer with the <kbd>←</kbd> <kbd>↑</kbd> <kbd>→</kbd> <kbd>↓</kbd> arrow keys (or WASD). Don't hit walls or light trails.</p>
+</section>
+
+<script src="game.js"></script>
+</body>
+</html>
