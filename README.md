@@ -29,6 +29,19 @@ Open http://127.0.0.1:8765/ in two browser windows with a different account in e
 
 Run the test: `.venv/bin/python tests/smoke_test.py`
 
+## Meetup mode: own Wi-Fi hotspot
+
+Phone via USB with *USB tethering* on, then:
+
+```bash
+scripts/lan-party.sh                               # Wi-Fi NEON-GRID / lightcycle
+SSID=LUG-GRID PASSWORD=secret123 scripts/lan-party.sh
+```
+
+The notebook becomes an access point with internet from the phone, and the game runs
+at the address the script prints (usually http://10.42.0.1:8765/). Ctrl+C stops
+everything and reconnects your normal Wi-Fi. Scores are kept in `server/neongrid.sqlite3`.
+
 ## Install on the Apache server (Debian/Ubuntu)
 
 ```bash
