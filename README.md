@@ -16,18 +16,72 @@ start screen shows a highscore list.
 3. Whoever hits a wall or a light trail loses. Head-on crash = draw.
    Leaving a running match counts as a loss. The cycles get faster over time.
 
-## Try it locally
+## Start the server locally (shell)
+
+### One-time setup
+
+Only needed the first time (or after deleting `.venv/`):
 
 ```bash
+cd ~/ClaudeCode/neon-grid
 python3 -m venv .venv
 .venv/bin/pip install -r server/requirements.txt
-cd server && ../.venv/bin/python server.py --static ../public
 ```
 
-Open http://127.0.0.1:8765/ in two browser windows with a different account in each
-(e.g. one normal and one private window).
+### Start
 
-Run the test: `.venv/bin/python tests/smoke_test.py`
+```bash
+cd ~/ClaudeCode/neon-grid/server
+../.venv/bin/python server.py --static ../public
+```
+
+`--static ../public` makes the game server deliver the web page itself, so you don't
+need Apache locally. When it is running you'll see `Running on http://127.0.0.1:8765`.
+The server stays in the foreground and logs to this terminal.
+
+Then open **http://127.0.0.1:8765/** in two browser windows, with a different
+account in each (e.g. one normal and one private window), and press *Enter the grid*
+in both.
+
+### Stop
+
+Press **Ctrl+C** in the terminal where the server runs.
+
+### Useful options
+
+| Option | Default | Purpose |
+|---|---|---|
+| `--port 9000` | `8765` | use a different port |
+| `--host 0.0.0.0` | `127.0.0.1` | also reachable from other machines in the LAN (`http://<your-ip>:8765/`) |
+| `--countdown 3` | `10` | shorter countdown before a match (handy for testing) |
+| `--db test.sqlite3` | `neongrid.sqlite3` | use a separate database for accounts/scores |
+
+Example for quick testing: `../.venv/bin/python server.py --static ../public --countdown 3`
+
+### Run in the background
+
+```bash
+cd ~/ClaudeCode/neon-grid/server
+nohup ../.venv/bin/python server.py --static ../public > neongrid.log 2>&1 &
+tail -f neongrid.log            # watch the log (Ctrl+C ends only tail)
+pkill -f "server.py --static"   # stop the server
+```
+
+### Troubleshooting
+
+- **`address already in use`**: a server is already running. Stop it with
+  `pkill -f server.py` or pick another port with `--port`.
+- **`ModuleNotFoundError: aiohttp`**: you used the system Python. Use
+  `../.venv/bin/python` (or repeat the one-time setup).
+- **Reset accounts and highscores**: stop the server, then
+  `rm server/neongrid.sqlite3*`.
+
+### Test
+
+```bash
+cd ~/ClaudeCode/neon-grid
+.venv/bin/python tests/smoke_test.py
+```
 
 ## Meetup mode: own Wi-Fi hotspot
 
