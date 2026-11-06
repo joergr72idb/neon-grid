@@ -1,3 +1,14 @@
+/*
+ * NEON GRID – page design (80s neon look).
+ *
+ * Colors are defined once as variables in :root; change them there.
+ * Sections: floor grid background · header · start layout · panels/forms/
+ * buttons · highscores · game (HUD, arena, overlay).
+ * The arena itself is drawn by game.js on <canvas>; trail colors are in
+ * COLORS at the top of game.js (keep them in sync with --cyan/--orange).
+ */
+
+/* Self-hosted font (no requests to Google, see fonts/OFL.txt for the license). */
 @font-face {
   font-family: "Orbitron";
   src: url("fonts/orbitron.woff2") format("woff2");
@@ -31,9 +42,13 @@ body {
   font: 15px/1.5 var(--body);
 }
 
+/* game.js switches screens with the hidden attribute; make sure it always wins. */
 [hidden] { display: none !important; }
 
-/* ---------- animated floor grid ---------- */
+/* ---------- animated floor grid ----------
+   A square grid tilted backwards in 3D (perspective + rotateX) so it looks
+   like a floor, faded out towards the horizon, and moved by one grid square
+   every 1.6 s so it seems to scroll towards the viewer. */
 #bg {
   position: fixed;
   inset: 0;
@@ -68,6 +83,7 @@ body {
   opacity: 0.6;
 }
 @keyframes floor { to { background-position: 0 64px, 0 0; } }
+/* Respect the "reduce motion" system setting: keep the floor still. */
 @media (prefers-reduced-motion: reduce) { #bg::before { animation: none; } }
 
 /* ---------- header ---------- */
@@ -101,6 +117,7 @@ body {
   margin: 36px auto 0;
   max-width: 960px;
 }
+/* Narrow screens (phones): highscores go below the login/menu panel. */
 @media (max-width: 860px) {
   .start { grid-template-columns: minmax(0, 520px); }
 }
@@ -261,8 +278,11 @@ input:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 12px rgb
   background: #02040a;
   box-shadow: 0 0 20px rgba(24, 231, 255, 0.45), inset 0 0 40px rgba(24, 231, 255, 0.08);
 }
+/* The three canvases lie exactly on top of each other. */
 .arena canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 
+/* Countdown / result text over the arena. Clicks go through to nothing
+   except the buttons (pointer-events). */
 .overlay {
   position: absolute;
   inset: 0;

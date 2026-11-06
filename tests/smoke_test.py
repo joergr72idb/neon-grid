@@ -18,6 +18,7 @@ import server  # noqa: E402
 
 
 async def recv(ws, kind):
+    """Read messages from the WebSocket until one of type `kind` arrives (max. 10 s each)."""
     while True:
         msg = json.loads((await ws.receive(timeout=10)).data)
         if msg["type"] == kind:
@@ -25,6 +26,8 @@ async def recv(ws, kind):
 
 
 async def main():
+    # Fresh temporary database and a 2-second countdown, so the test is fast
+    # and never touches the real accounts in server/neongrid.sqlite3.
     with tempfile.TemporaryDirectory() as tmp:
         app = server.make_app(Path(tmp) / "test.sqlite3", countdown=2)
         async with TestServer(app) as ts, ClientSession() as http:
@@ -44,6 +47,7 @@ async def main():
             assert r.status == 200
 
             # match: alice waits, bob joins, countdown, alice drives into the top wall
+            # a = alice's browser, b = bob's browser
             a = await http.ws_connect(base + "ws")
             b = await http.ws_connect(base + "ws")
             for ws, tok in ((a, tokens[0]), (b, tokens[1])):
@@ -61,6 +65,9 @@ async def main():
                 if c["n"] == 0:
                     break
             assert counts == [2, 1, 0], counts
+            # alice starts in the middle (y = 40) and turns up: she hits the top
+            # wall after ~40 ticks. bob's "right" would be a 180° turn and is ignored,
+            # so he drives left across the empty arena and survives longer.
             await a.send_json({"type": "turn", "dir": "up"})
             await b.send_json({"type": "turn", "dir": "right"})   # reversing is ignored
             end_a = await recv(a, "end")
@@ -68,7 +75,8 @@ async def main():
             assert end_a["result"] == "lose" and end_b["result"] == "win", (end_a, end_b)
             assert end_b["me"]["wins"] == 1 and end_a["me"]["losses"] == 1
 
-            # second match, decided by forfeit
+            # second match, decided by forfeit: alice closes her connection
+            # during the countdown, so bob wins.
             await a.send_json({"type": "join"})
             await recv(a, "waiting")
             await b.send_json({"type": "join"})

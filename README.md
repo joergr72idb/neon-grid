@@ -8,6 +8,18 @@ start screen shows a highscore list.
 - **server/** – Python game server (accounts, matchmaking, game logic, SQLite)
 - **deploy/** – Apache snippet and systemd service
 - **tests/smoke_test.py** – end-to-end test (two players, two matches)
+- **docs/** – documentation (see below)
+
+## Documentation
+
+| Document | Content |
+|---|---|
+| [docs/SETUP.md](docs/SETUP.md) | Setup guide: local, home network, **meetup hotspot** (step by step, with troubleshooting), Apache server, reference of all options |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the program is built: components, match sequence, HTTP API, WebSocket messages, database, security |
+| [docs/PAP.md](docs/PAP.md) | Programmablaufplan: DIN 66001 flowcharts of all important functions |
+
+The source code itself is commented for readers who are new to it. Start with the
+docstring at the top of `server/server.py` and the header of `public/game.js`.
 
 ## How a match works
 
@@ -85,7 +97,8 @@ cd ~/ClaudeCode/neon-grid
 
 ## Meetup mode: own Wi-Fi hotspot
 
-Phone via USB with *USB tethering* on, then:
+Phone via USB with *USB tethering* on (full step-by-step guide with
+requirements and troubleshooting: [docs/SETUP.md, section C](docs/SETUP.md#c-meetup-mode-own-wi-fi-hotspot)), then:
 
 ```bash
 scripts/lan-party.sh                               # Wi-Fi NEON-GRID / lightcycle

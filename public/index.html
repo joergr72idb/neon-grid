@@ -1,4 +1,16 @@
 <!doctype html>
+<!--
+  NEON GRID – the one and only page of the game.
+
+  It contains all screens at once; game.js shows one and hides the others
+  (the `hidden` attribute):
+    #screen-auth  login / create account
+    #screen-menu  logged in: own statistics and the "Enter the grid" button
+    #screen-wait  waiting for a second player
+    #screen-game  the arena (replaces the whole #start area during a match)
+  The highscore table (.scores) is visible next to the first three screens.
+  Element ids are used by game.js, class names by style.css.
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -7,6 +19,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- Animated neon floor in the background (pure CSS, see #bg in style.css). -->
 <div id="bg" aria-hidden="true"></div>
 
 <header class="top">
@@ -22,6 +35,8 @@
       <button type="button" class="tab" data-mode="register" role="tab">New account</button>
     </div>
     <form id="auth-form" autocomplete="on">
+      <!-- Same rules as the server checks (USERNAME_RE, MIN_PASSWORD in server.py),
+           so most typos are caught before anything is sent. -->
       <label>Username
         <input id="auth-user" name="username" required minlength="3" maxlength="16"
                pattern="[A-Za-z0-9_\-]{3,16}" autocomplete="username">
@@ -79,6 +94,11 @@
     <div class="vs">VS</div>
     <div class="pl p1"><span id="hud-p1"></span><span class="dot"></span></div>
   </div>
+  <!-- Three canvases stacked on top of each other (see game.js):
+       glow   – background grid + wide glowing trails
+       trails – thin bright trail cores
+       fx     – things that move every frame: pulsing heads, explosion sparks
+       The overlay shows the countdown and the result over the arena. -->
   <div id="arena" class="arena">
     <canvas id="glow"></canvas>
     <canvas id="trails"></canvas>
