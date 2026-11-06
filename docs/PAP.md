@@ -38,6 +38,7 @@ block into https://mermaid.live to view it or export it as PNG/SVG.
 | 10 | Browser: page start and menu | `game.js` → `init`, `submitAuth`, `play` |
 | 11 | Browser: during a match | `game.js` → `handleMessage`, `onTick`, `onEnd` |
 | 12 | Meetup hotspot script | `scripts/lan-party.sh` |
+| 13 | Game access point with jump page | `scripts/neongrid-ap.sh`, `server.py` → `captive_portal_middleware` |
 
 ---
 
@@ -381,4 +382,54 @@ flowchart TD
         CL3 -->|no| CL5
         CL4 --> CL5(["End"])
     end
+```
+
+## 13. Game access point with jump page (`scripts/neongrid-ap.sh`)
+
+```mermaid
+flowchart TD
+    A(["Start: scripts/neongrid-ap.sh"]) --> B{"Running as root?"}
+    B -->|no| B1[/"Ask for the sudo password"/] --> B2["Restart the script with sudo"] --> B
+    B -->|yes| C{"Password 8–63 chars,<br/>.venv, nmcli and nft present,<br/>port 8765 free?"}
+    C -->|no| E1[/"Error message"/] --> Z1(["End, nothing changed"])
+    C -->|yes| D["Switch Wi-Fi radio on"]
+    D --> E{"Wi-Fi device found?"}
+    E -->|no| E1
+    E -->|yes| F["Remember the currently<br/>connected Wi-Fi"]
+    F --> G["Install cleanup for Ctrl+C / exit"]
+    G --> H["Write DNS setting:<br/>every name → 10.42.0.1,<br/>portal URL via DHCP option 114"]
+    H --> I["Create and start access point:<br/>SSID Neongrid, WPA2, 2.4 GHz,<br/>10.42.0.1/24, DHCP"]
+    I --> J["nftables: port 80 → 8765"]
+    J --> K["Start game server as normal user<br/>--host 0.0.0.0 --portal http://10.42.0.1/"]
+    K --> L{"Server running<br/>after 1 s?"}
+    L -->|no| E2[/"Error: server did not start"/] --> CL
+    L -->|yes| M[/"Print box: Wi-Fi name, password,<br/>IP address 10.42.0.1, game URL<br/>(+ Wi-Fi QR code if qrencode exists)"/]
+    M --> N["Wait until the server ends<br/>(Ctrl+C)"]
+    N --> CL
+
+    subgraph cleanup["cleanup()"]
+        CL["Stop game server"] --> CL1["Delete nftables table"]
+        CL1 --> CL2["Switch off and delete access point"]
+        CL2 --> CL3["Delete DNS setting file"]
+        CL3 --> CL4{"Was connected to a<br/>Wi-Fi before?"}
+        CL4 -->|yes| CL5["Reconnect to it"] --> CL6(["End"])
+        CL4 -->|no| CL6
+    end
+```
+
+**What happens when a phone joins** (`captive_portal_middleware` in server.py):
+
+```mermaid
+flowchart TD
+    A(["Phone joins Wi-Fi 'Neongrid'"]) --> B["DHCP: phone gets 10.42.0.x,<br/>DNS server and portal URL"]
+    B --> C[/"Phone checks for internet, e.g.<br/>GET http://connectivitycheck.gstatic.com/generate_204"/]
+    C --> D["DNS answers 10.42.0.1"]
+    D --> E["nftables: port 80 → game server :8765"]
+    E --> F{"Host name of the request =<br/>10.42.0.1 or localhost?"}
+    F -->|no| G[/"302 redirect to http://10.42.0.1/<br/>(Cache-Control: no-store)"/]
+    G --> H["Phone: 'this network has a login page'"]
+    H --> I[/"Phone opens http://10.42.0.1/<br/>in its login window"/]
+    I --> F
+    F -->|yes| J[/"Serve the game page / API / WebSocket"/]
+    J --> K(["Player sees NEON GRID"])
 ```

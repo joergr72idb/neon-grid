@@ -8,6 +8,7 @@ Pick the scenario that fits you:
 | **A. Local** – everything on one computer | you, in two browser windows | [A](#a-local-on-one-computer) |
 | **B. Home network** – one computer is the server | everyone on your Wi-Fi/LAN | [B](#b-home-network-lan) |
 | **C. Meetup mode** – the notebook opens its own Wi-Fi hotspot | everyone near the notebook | [C](#c-meetup-mode-own-wi-fi-hotspot) |
+| **C2. Game access point** – own Wi-Fi *Neongrid*, no internet, game opens by itself | everyone near the computer | [C2](#c2-game-access-point-without-internet-jump-page) |
 | **D. Internet** – Apache web server with HTTPS | everyone on the internet | [D](#d-public-server-with-apache) |
 
 Other documents: [ARCHITECTURE.md](ARCHITECTURE.md) explains how the program is
@@ -39,9 +40,10 @@ python3 -m venv .venv                              # private Python environment 
 
 ```bash
 .venv/bin/python tests/smoke_test.py
+.venv/bin/python tests/portal_test.py
 ```
 
-The last line should start with `OK –`. The test plays two complete matches
+Each test's last line should start with `OK –`. The test plays two complete matches
 against a temporary database. It doesn't touch your real scores.
 
 ### What is where
@@ -53,8 +55,9 @@ against a temporary database. It doesn't touch your real scores.
 | `server/neongrid.sqlite3` | **database** with accounts and scores (created on first start, not in git) |
 | `public/` | the web page: `index.html`, `style.css`, `game.js`, font |
 | `scripts/lan-party.sh` | meetup mode (hotspot + server in one command) |
+| `scripts/neongrid-ap.sh` | game access point without internet, with jump page |
 | `deploy/` | config files for the Apache server (scenario D) |
-| `tests/smoke_test.py` | automatic end-to-end test |
+| `tests/smoke_test.py`, `tests/portal_test.py` | automatic tests |
 
 ---
 
@@ -239,25 +242,120 @@ Afterwards you can switch off USB tethering on the phone.
 
 ### C.8 Meetup without a phone (no internet at all)
 
-The script refuses to start without USB tethering. If you only need the game and
-no internet, you can do the same steps by hand:
+`lan-party.sh` refuses to start without USB tethering. If you only need the game
+and no internet, use the game access point instead (next section). It also opens
+the game on the players' devices by itself.
 
-```bash
-# hotspot on (replace wlp2s0 with your Wi-Fi device from `nmcli device`)
-nmcli device wifi hotspot ifname wlp2s0 con-name neongrid-hotspot ssid NEON-GRID band bg password lightcycle
+---
 
-# game server
-cd ~/ClaudeCode/neon-grid
-.venv/bin/python server/server.py --host 0.0.0.0 --static public --db server/neongrid.sqlite3
+## C2. Game access point without internet (jump page)
 
-# afterwards (Ctrl+C on the server first)
-nmcli connection delete neongrid-hotspot
+The computer opens its own Wi-Fi **Neongrid** and serves only the game. No
+internet and no phone are needed. When players join the Wi-Fi, their phone or
+laptop **opens the game by itself**, the same way hotel Wi-Fis open their login
+page. That page is the "jump page". Any `http://` address typed into a browser
+also leads to the game.
+
+```mermaid
+flowchart LR
+    P1["Player phone"] -- "Wi-Fi 'Neongrid'<br/>password 1234neongrid" --> NB
+    P2["Player laptop"] -- "Wi-Fi" --> NB
+    subgraph NB["Game computer – 10.42.0.1"]
+        DNS["dnsmasq: DHCP +<br/>DNS: every name → 10.42.0.1"]
+        FW["nftables: port 80 → 8765"]
+        GS["game server --portal<br/>foreign names → redirect to the game"]
+        FW --> GS
+    end
 ```
 
-The game address is `http://10.42.0.1:8765/`, and `nmcli device show wlp2s0`
-shows the real address under `IP4.ADDRESS`. Players' phones may warn
-"no internet" and switch back to mobile data. If that happens, tell them to stay
-on the Wi-Fi.
+### C2.1 Start
+
+```bash
+cd ~/ClaudeCode/neon-grid
+scripts/neongrid-ap.sh
+```
+
+The script asks for your **sudo password**, because creating the DNS setting and
+the port-80 rule needs administrator rights. The game server itself still runs
+as your normal user. The script then prints:
+
+```
+  ┌────────────────────────────────────────────┐
+     NEON GRID access point is live
+
+     Wi-Fi:       Neongrid
+     Password:    1234neongrid
+     IP address:  10.42.0.1
+     Game:        http://10.42.0.1/
+     …
+  └────────────────────────────────────────────┘
+```
+
+If `qrencode` is installed (`sudo apt install qrencode`), a QR code follows.
+Players can scan it with the phone camera to join the Wi-Fi without typing the
+password.
+
+Other name or password: `SSID=Grid2 PASSWORD=secret123 scripts/neongrid-ap.sh`.
+The password needs 8–63 characters.
+
+**Stop:** press **Ctrl+C**. The script removes the access point, the DNS setting
+and the port rule again, and reconnects the Wi-Fi you were on before.
+
+> **Before you start:**
+> - Stop any game server that is already running (`pkill -f server.py`). The
+>   script refuses to start while port 8765 is in use.
+> - The Wi-Fi card can be either an access point or connected to another
+>   Wi-Fi, not both. **This computer loses its normal Wi-Fi/internet while the
+>   access point runs.** A cable (Ethernet) connection keeps working.
+> - If another Wi-Fi with the same name **Neongrid** is nearby (for example a
+>   phone hotspot with that name), switch it off. Otherwise devices may join
+>   the wrong one.
+
+### C2.2 What players see
+
+1. Join the Wi-Fi **Neongrid** with password **1234neongrid**.
+2. After a few seconds the phone shows **"Sign in to network"** (Android) or opens
+   a login window by itself (iPhone, iPad, Mac). Windows opens the browser.
+   The game appears in it.
+3. If nothing opens: start the browser and enter **10.42.0.1**, or any `http://`
+   address. They all lead to the game.
+
+Notes for players:
+
+- **iPhone/iPad:** the login window works for playing. If it is closed with
+  *Cancel*, choose **"Use Without Internet"** to stay on the Wi-Fi, then open
+  Safari at `10.42.0.1`.
+- **Android:** the phone may say "No internet". Choose **"Stay connected"**. If the
+  page doesn't load in Chrome, switch off **mobile data**: Android otherwise
+  sends browser traffic over mobile data, because the Wi-Fi "has no internet".
+- **https:// addresses** (for example a bookmarked https://google.com) can't be
+  redirected and just fail. Type `10.42.0.1` instead.
+- On the game computer itself, open `http://10.42.0.1/` or `http://127.0.0.1:8765/`.
+
+### C2.3 How the jump page works
+
+| Step | What happens |
+|---|---|
+| 1 | NetworkManager switches the Wi-Fi card to access-point mode (2.4 GHz, WPA2) with the fixed address 10.42.0.1. Its built-in dnsmasq hands out addresses 10.42.0.x to the players (DHCP). |
+| 2 | The extra file `/etc/NetworkManager/dnsmasq-shared.d/neongrid-portal.conf` makes dnsmasq answer **every** DNS name with 10.42.0.1. It also announces the portal address `http://10.42.0.1/` (DHCP option 114, RFC 8910). |
+| 3 | An nftables table `neongrid_portal` forwards port 80 (normal web traffic) to the game server on port 8765. |
+| 4 | Right after joining, every device tests for internet by loading a known page, e.g. `http://connectivitycheck.gstatic.com/generate_204` (Android) or `http://captive.apple.com/hotspot-detect.html` (Apple). Because of steps 2 and 3, the test reaches the game server. |
+| 5 | The game server runs with `--portal http://10.42.0.1/`. It answers every request for a foreign host name with a redirect to the game. The device takes that as a login page and shows it: the game. |
+
+All of this exists only while the script runs. `tests/portal_test.py` checks
+step 5 for Android, Apple, Windows, Firefox and Linux connectivity checks.
+
+### C2.4 Troubleshooting
+
+| Problem | Cause / solution |
+|---|---|
+| `Port 8765 is already in use` | Another game server is running: `pkill -f server.py`, then start again. |
+| `No Wi-Fi device found.` | Wi-Fi is hard-blocked (airplane mode switch / key) or there's no Wi-Fi card. `rfkill list` shows blocks. |
+| Error at "Starting access point" | The card doesn't support AP mode (check with `/sbin/iw list`, it needs `* AP`), or `dnsmasq-base` is missing (`sudo apt install dnsmasq-base`). |
+| Players see the Wi-Fi but can't connect | Wrong password (case-sensitive), or a very old device without WPA2 support. |
+| Players get no IP address | A firewall blocks DHCP/DNS. If `ufw` is active: `sudo ufw allow in on <wifi-device>` (device name from `nmcli device`). |
+| No jump page appears, but `10.42.0.1` works in the browser | Some devices only check after a while or remember the network as "no internet". Forget the Wi-Fi on the device and join again, or open `10.42.0.1` by hand. |
+| The script was killed hard (e.g. power loss) | Clean up by hand: `sudo nft delete table ip neongrid_portal; sudo rm -f /etc/NetworkManager/dnsmasq-shared.d/neongrid-portal.conf; nmcli connection delete neongrid-ap`. Starting the script again also cleans up leftovers. |
 
 ---
 
@@ -346,6 +444,7 @@ It can only write to `/var/lib/neongrid`.
 | `--db` | `neongrid.sqlite3` | database file (relative to the current folder) |
 | `--static` | – | also serve this folder as the web page (no Apache needed) |
 | `--countdown` | `10` | seconds of countdown before a match |
+| `--portal` | – | captive portal: redirect requests for other host names to this URL (used by `neongrid-ap.sh`) |
 
 ### Meetup script (`scripts/lan-party.sh`) – environment variables
 
@@ -354,6 +453,16 @@ It can only write to `/var/lib/neongrid`.
 | `SSID` | `NEON-GRID` | name of the Wi-Fi |
 | `PASSWORD` | `lightcycle` | Wi-Fi password (min. 8 characters) |
 | `PORT` | `8765` | game server port |
+
+### Game access point (`scripts/neongrid-ap.sh`) – environment variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SSID` | `Neongrid` | name of the Wi-Fi |
+| `PASSWORD` | `1234neongrid` | Wi-Fi password (8–63 characters) |
+| `PORT` | `8765` | internal game server port (players always use port 80) |
+
+The address is fixed at `10.42.0.1`.
 
 ### Game settings (constants at the top of `server/server.py`)
 

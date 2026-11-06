@@ -8,14 +8,15 @@ start screen shows a highscore list.
 - **public/** – the web page (HTML5 canvas, served by Apache)
 - **server/** – Python game server (accounts, matchmaking, game logic, SQLite)
 - **deploy/** – Apache snippet and systemd service
-- **tests/smoke_test.py** – end-to-end test (two players, two matches)
+- **tests/smoke_test.py** – end-to-end test (two players, two matches);
+  **tests/portal_test.py** – captive-portal redirect test
 - **docs/** – documentation (see below)
 
 ## Documentation
 
 | Document | Content |
 |---|---|
-| [docs/SETUP.md](docs/SETUP.md) | Setup guide: local, home network, **meetup hotspot** (step by step, with troubleshooting), Apache server, reference of all options |
+| [docs/SETUP.md](docs/SETUP.md) | Setup guide: local, home network, **meetup hotspot** (step by step, with troubleshooting), **game access point with jump page**, Apache server, reference of all options |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the program is built: components, match sequence, HTTP API, WebSocket messages, database, security |
 | [docs/PAP.md](docs/PAP.md) | Programmablaufplan: DIN 66001 flowcharts of all important functions |
 
@@ -94,6 +95,7 @@ pkill -f "server.py --static"   # stop the server
 ```bash
 cd ~/ClaudeCode/neon-grid
 .venv/bin/python tests/smoke_test.py
+.venv/bin/python tests/portal_test.py
 ```
 
 ## Meetup mode: own Wi-Fi hotspot
@@ -109,6 +111,18 @@ SSID=LUG-GRID PASSWORD=secret123 scripts/lan-party.sh
 The notebook becomes an access point with internet from the phone, and the game runs
 at the address the script prints (usually http://10.42.0.1:8765/). Ctrl+C stops
 everything and reconnects your normal Wi-Fi. Scores are kept in `server/neongrid.sqlite3`.
+
+## Game access point without internet (jump page)
+
+```bash
+scripts/neongrid-ap.sh          # Wi-Fi Neongrid / 1234neongrid, asks for the sudo password
+```
+
+This computer becomes a Wi-Fi access point that only serves the game. No internet
+is needed. Devices that join open the game by themselves (captive portal), and the
+script prints the IP address, **10.42.0.1**. The game is at http://10.42.0.1/. This
+computer loses its normal Wi-Fi while the access point runs. Ctrl+C undoes
+everything. Details: [docs/SETUP.md, section C2](docs/SETUP.md#c2-game-access-point-without-internet-jump-page).
 
 ## Install on the Apache server (Debian/Ubuntu)
 

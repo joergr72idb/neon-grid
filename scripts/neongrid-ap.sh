@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+# NEON GRID game access point – no internet needed.
+#
+# Turns this computer's Wi-Fi into an access point and serves the game to
+# everyone who joins. Phones, tablets and laptops open the game by
+# themselves after connecting (captive portal / "jump page"), and every
+# http:// address typed into a browser leads to the game as well.
+#
+#   scripts/neongrid-ap.sh                              # Wi-Fi Neongrid / 1234neongrid
+#   SSID=Grid2 PASSWORD=secret123 scripts/neongrid-ap.sh
+#
+# Ctrl+C stops the game, removes the access point and reconnects your normal Wi-Fi.
+# Needs administrator rights (it asks for your sudo password).
+#
+# How it works (details and troubleshooting: docs/SETUP.md, section C2;
+# flowchart: docs/PAP.md, chart 13):
+#   1. NetworkManager switches the Wi-Fi card to access-point mode and runs a
+#      small DHCP/DNS server (dnsmasq) that hands out addresses 10.42.0.x.
+#   2. An extra dnsmasq setting answers EVERY name with this computer's
+#      address, and tells devices the portal address (DHCP option 114).
+#   3. A firewall rule (nftables) forwards port 80 to the game server's port,
+#      so the game is at plain http://10.42.0.1/.
+#   4. The game server runs with --portal: the connectivity checks of phones
+#      (e.g. connectivitycheck.gstatic.com, captive.apple.com) get a redirect
+#      to the game, so the phone shows it as the network's login page.
+#   5. On exit everything is undone (see cleanup()).
+#
+# Requirements: Linux with NetworkManager, nftables and dnsmasq-base, a Wi-Fi
+# card that supports access point (AP) mode, and the Python environment in
+# .venv (see README).
+
+# Stop on errors (-e), on unset variables (-u) and on failures inside pipes.
+set -euo pipefail
+
+SSID="${SSID:-Neongrid}"
+PASSWORD="${PASSWORD:-1234neongrid}"
+PORT="${PORT:-8765}"                       # internal port of the game server
+IP="10.42.0.1"                             # this computer's address on the access point
+CON="neongrid-ap"                          # name of the temporary NetworkManager connection
+PORTAL_CONF="/etc/NetworkManager/dnsmasq-shared.d/neongrid-portal.conf"
+NFT_TABLE="neongrid_portal"
+# Project folder (one level above scripts/), so the script works from any directory.
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+# --- Administrator rights -----------------------------------------------------
+# Creating the access point's DNS setting and the port-80 rule needs root.
+# Restart this script through sudo; `env` passes the settings along.
+if [ "$EUID" -ne 0 ]; then
+    echo "Administrator rights are needed for the access point. Asking sudo…"
+    exec sudo env SSID="$SSID" PASSWORD="$PASSWORD" PORT="$PORT" "$0" "$@"
+fi
+# The game server itself runs as the normal user who called sudo, so the
+# database file keeps belonging to them (and Python doesn't run as root).
+RUN_AS=()
+if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    RUN_AS=(sudo -u "$SUDO_USER")
+fi
+
+# --- Checks (nothing is changed if one fails) -----------------------------------
+# WPA2 requires a Wi-Fi password of 8–63 characters.
+if [ "${#PASSWORD}" -lt 8 ] || [ "${#PASSWORD}" -gt 63 ]; then
+    echo "PASSWORD must be 8–63 characters." >&2
+    exit 1
+fi
+if [ ! -x "$DIR/.venv/bin/python" ]; then
+    echo "Python environment missing. Run: python3 -m venv .venv && .venv/bin/pip install -r server/requirements.txt" >&2
+    exit 1
+fi
+for tool in nmcli nft; do
+    if ! command -v "$tool" >/dev/null; then
+        echo "'$tool' is missing. Install it: sudo apt install network-manager nftables" >&2
+        exit 1
+    fi
+done
+if ss -ltn "sport = :$PORT" | grep -q LISTEN; then
+    echo "Port $PORT is already in use – is a game server still running? Stop it (pkill -f server.py) or use PORT=9000." >&2
+    exit 1
+fi
+
+nmcli radio wifi on
+# Find the first Wi-Fi device (e.g. wlp0s20f3) and remember which Wi-Fi it is
+# connected to right now, so we can reconnect to it at the end.
+WIFI_DEV="$(nmcli -t -f DEVICE,TYPE device | awk -F: '$2=="wifi"{print $1; exit}')"
+if [ -z "$WIFI_DEV" ]; then
+    echo "No Wi-Fi device found." >&2
+    exit 1
+fi
+PREV_WIFI="$(nmcli -g GENERAL.CONNECTION device show "$WIFI_DEV" 2>/dev/null || true)"
+[ "$PREV_WIFI" = "$CON" ] && PREV_WIFI=""
+
+# --- Cleanup --------------------------------------------------------------------
+# Runs on Ctrl+C, on kill and on any exit (also after errors): stop the
+# server, remove the port rule and DNS setting, delete the access point and
+# reconnect the previous Wi-Fi. Every step is safe to run even if the
+# matching setup step never happened.
+SERVER_PID=""
+cleanup() {
+    trap - INT TERM EXIT   # don't run twice
+    set +e                 # carry on with the remaining steps even if one fails
+    echo
+    echo "Shutting down…"
+    [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null && wait "$SERVER_PID" 2>/dev/null
+    nft delete table ip "$NFT_TABLE" 2>/dev/null
+    nmcli connection down "$CON" >/dev/null 2>&1
+    nmcli connection delete "$CON" >/dev/null 2>&1
+    rm -f "$PORTAL_CONF"
+    if [ -n "$PREV_WIFI" ]; then
+        echo "Reconnecting to '$PREV_WIFI'…"
+        nmcli connection up "$PREV_WIFI" >/dev/null 2>&1 || echo "Could not reconnect – do it in the network menu."
+    fi
+}
+trap cleanup INT TERM EXIT
+
+# --- 1. DNS: every name points to this computer ---------------------------------
+# NetworkManager's dnsmasq for access points reads extra settings from
+# dnsmasq-shared.d. The file only exists while this script runs.
+mkdir -p "$(dirname "$PORTAL_CONF")"
+cat > "$PORTAL_CONF" <<EOF
+# Written by NEON GRID scripts/neongrid-ap.sh – removed again when it stops.
+# Answer every DNS name with the game computer's address:
+address=/#/$IP
+# RFC 8910: tell joining devices directly where the portal ("jump page") is.
+dhcp-option=114,"http://$IP/"
+EOF
+
+# --- 2. Access point ---------------------------------------------------------------
+#    2.4 GHz ("bg") for best compatibility, WPA2 (rsn/ccmp), fixed address
+#    10.42.0.1/24, IPv6 off (only IPv4 is redirected), never starts by itself.
+#    A leftover connection from a crashed earlier run is removed first.
+echo "Starting access point '$SSID' on $WIFI_DEV…"
+nmcli connection delete "$CON" >/dev/null 2>&1 || true
+nmcli connection add type wifi ifname "$WIFI_DEV" con-name "$CON" autoconnect no ssid "$SSID" \
+    802-11-wireless.mode ap 802-11-wireless.band bg \
+    ipv4.method shared ipv4.addresses "$IP/24" ipv6.method disabled \
+    wifi-sec.key-mgmt wpa-psk wifi-sec.proto rsn wifi-sec.pairwise ccmp wifi-sec.group ccmp \
+    wifi-sec.pmf disable wifi-sec.psk "$PASSWORD" >/dev/null
+nmcli connection up "$CON" >/dev/null
+
+# --- 3. Port 80 -> game server --------------------------------------------------
+#    prerouting: requests from the Wi-Fi to port 80 go to the game server.
+#    output:     the same for browsers on this computer (http://10.42.0.1/).
+nft delete table ip "$NFT_TABLE" 2>/dev/null || true
+nft -f - <<EOF
+table ip $NFT_TABLE {
+    chain prerouting {
+        type nat hook prerouting priority dstnat; policy accept;
+        iifname "$WIFI_DEV" tcp dport 80 redirect to :$PORT
+    }
+    chain output {
+        type nat hook output priority -100; policy accept;
+        ip daddr $IP tcp dport 80 redirect to :$PORT
+    }
+}
+EOF
+
+# --- 4. Game server ------------------------------------------------------------------
+#    Listens on all interfaces; --portal switches on the jump-page redirect.
+#    Runs in the background (&) so this script can print the info box and
+#    clean up later. Scores go to the normal database.
+"${RUN_AS[@]}" "$DIR/.venv/bin/python" "$DIR/server/server.py" --host 0.0.0.0 --port "$PORT" \
+    --static "$DIR/public" --db "$DIR/server/neongrid.sqlite3" --portal "http://$IP/" &
+SERVER_PID=$!
+sleep 1
+if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+    echo "The game server did not start (see the error above)." >&2
+    exit 1
+fi
+
+# --- 5. Info for the players ------------------------------------------------------
+cat <<EOF
+
+  ┌────────────────────────────────────────────┐
+     NEON GRID access point is live
+
+     Wi-Fi:       $SSID
+     Password:    $PASSWORD
+     IP address:  $IP
+     Game:        http://$IP/
+
+     Phones open the game by themselves after
+     joining ("Sign in to network"). Any http://
+     address in a browser leads there too.
+
+     Stop:        Ctrl+C
+  └────────────────────────────────────────────┘
+EOF
+# Optional: a QR code phones can scan to join the Wi-Fi
+# (sudo apt install qrencode). Special characters must be escaped with "\".
+if command -v qrencode >/dev/null; then
+    esc() { printf '%s' "$1" | sed 's/[\\;,:"]/\\&/g'; }
+    echo "     Scan to join the Wi-Fi:"
+    qrencode -t ANSIUTF8 -m 2 "WIFI:T:WPA;S:$(esc "$SSID");P:$(esc "$PASSWORD");;"
+fi
+echo
+
+# Block here until the server ends (normally: Ctrl+C -> cleanup()).
+wait "$SERVER_PID"

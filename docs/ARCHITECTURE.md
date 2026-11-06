@@ -50,10 +50,12 @@ use is password hashing (`asyncio.to_thread`), which is slow on purpose.
 | `public/index.html` | 120 | markup of all screens |
 | `public/game.js` | 650 | client logic |
 | `public/style.css` | 330 | design |
-| `scripts/lan-party.sh` | 135 | meetup hotspot |
+| `scripts/lan-party.sh` | 135 | meetup hotspot (internet via phone) |
+| `scripts/neongrid-ap.sh` | 197 | game access point without internet, with captive portal |
 | `deploy/neongrid.service` | 22 | systemd service for the public server |
 | `deploy/neongrid-apache.conf` | 18 | Apache reverse proxy snippet |
 | `tests/smoke_test.py` | 96 | end-to-end test |
+| `tests/portal_test.py` | 65 | captive-portal redirect test |
 
 ## 3. Life of a match
 
@@ -210,6 +212,7 @@ transaction that inserts the match. Matches aborted by a server error are not st
 | Faked IP via header | `X-Forwarded-For` is only trusted when the request comes from the local Apache. |
 | HTML injection via user names | Names are limited to `A–Z a–z 0–9 _ -`, and the page inserts them with `textContent`. |
 | Cheating | The server decides all movement and collisions. |
+| Captive portal hijacking other sites | `--portal` only redirects plain-HTTP requests that reach this server; it is switched on only by `neongrid-ap.sh` on its own Wi-Fi. |
 | Huge requests | HTTP bodies are limited to 16 KB and WebSocket messages to 4 KB. |
 | Eavesdropping | Use HTTPS in production (SETUP.md, D.1). |
 | Privacy (GDPR) | The font is self-hosted, so there are no third-party requests. |

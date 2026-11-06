@@ -16,6 +16,9 @@ Overview of how the pieces fit together
                     it moves both cycles, detects crashes and tells both
                     browsers what happened ("authoritative server"). Browsers
                     only send steering commands and draw what they are told.
+* Captive portal  – optional (--portal): requests for any other host name
+                    are redirected to the game, so phones joining the game
+                    access point open it automatically (scripts/neongrid-ap.sh).
 * HTTP handlers   – ``/api/register``, ``/api/login``, ``/api/logout``,
                     ``/api/me``, ``/api/highscores`` (JSON) and ``/ws``
                     (WebSocket for the live game).
@@ -38,6 +41,7 @@ import sqlite3
 import time
 from collections import defaultdict, deque
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from aiohttp import WSMsgType, web
 
@@ -663,12 +667,43 @@ async def websocket(request):
     return ws
 
 
-def make_app(db_path, static_dir=None, countdown=10):
+def captive_portal_middleware(portal_url):
+    """Redirect every request for a foreign host name to the game (captive portal).
+
+    On the game access point (scripts/neongrid-ap.sh) the DNS server answers
+    *every* name with this computer's address. When a phone joins the Wi-Fi it
+    checks for internet by loading a well-known page, e.g.
+    http://connectivitycheck.gstatic.com/generate_204 (Android) or
+    http://captive.apple.com/hotspot-detect.html (Apple). That request arrives
+    here with a foreign Host header. Answering with a redirect instead of the
+    expected reply makes the phone think it found a login page ("captive
+    portal") and open it: the game appears by itself.
+
+    Requests for the portal address itself or for localhost are served normally.
+    """
+    allowed = {urlsplit(portal_url).hostname, "localhost", "127.0.0.1", "::1"}
+
+    @web.middleware
+    async def middleware(request, handler):
+        if request.url.host not in allowed:
+            # no-store: devices must not cache the redirect and repeat it after
+            # the access point is gone.
+            raise web.HTTPFound(portal_url, headers={"Cache-Control": "no-store"})
+        return await handler(request)
+
+    return middleware
+
+
+def make_app(db_path, static_dir=None, countdown=10, portal=None):
     """Build the web application: database, lobby, rate limits and URL routes.
 
     Separate from main() so tests can create an app with a temporary database.
+    portal: URL of the game (e.g. "http://10.42.0.1/") to switch on the
+    captive-portal redirect, see captive_portal_middleware.
     """
-    app = web.Application(client_max_size=16 * 1024)   # requests are small; reject >16 KB
+    middlewares = [captive_portal_middleware(portal)] if portal else []
+    # requests are small; reject >16 KB
+    app = web.Application(client_max_size=16 * 1024, middlewares=middlewares)
     db = DB(db_path)
     app["db"] = db
     app["lobby"] = Lobby(db, countdown)
@@ -700,9 +735,12 @@ def main():
     parser.add_argument("--db", default="neongrid.sqlite3", help="SQLite database file")
     parser.add_argument("--static", help="also serve this folder (local testing without Apache)")
     parser.add_argument("--countdown", type=int, default=10, help="countdown seconds before a match")
+    parser.add_argument("--portal", metavar="URL",
+                        help="captive portal: redirect requests for other host names to this URL "
+                             "(used by scripts/neongrid-ap.sh, e.g. http://10.42.0.1/)")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    web.run_app(make_app(args.db, args.static, args.countdown),
+    web.run_app(make_app(args.db, args.static, args.countdown, args.portal),
                 host=args.host, port=args.port, access_log=None)
 
 
