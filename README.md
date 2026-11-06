@@ -135,3 +135,7 @@ The tests use a temporary database and never touch your real scores.
   logo, font or imagery from the TRON films.
 - The font Orbitron is licensed under the SIL Open Font License
   (`public/fonts/OFL.txt`).
+
+## AI notice
+
+This project was developed with AI assistance (Claude).
