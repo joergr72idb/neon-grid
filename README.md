@@ -13,6 +13,16 @@ a retro computer show, or just two browser windows at home. The notebook
 can even open its own Wi-Fi, so players only join it and the game opens by
 itself.
 
+![NEON GRID start screen: logged in as Nova with own statistics, the hint "Blaze is waiting for a battle!" with a "Fight Blaze" button, and the highscore list](docs/images/start.png)
+
+*Start screen: your own statistics, who is waiting for a battle, and the
+shared highscore list.*
+
+![A running NEON GRID match: Blaze (cyan) vs Nova (orange), both light trails winding through the arena](docs/images/game.png)
+
+*A match in progress: Blaze (cyan) against Nova (orange). Every move leaves
+a light trail; the cycles get faster the longer the match runs.*
+
 ## Features
 
 - **Two-player online duels** with matchmaking: the first player waits,
