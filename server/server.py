@@ -444,9 +444,34 @@ class Lobby:
     def __init__(self, db, countdown):
         self.db = db
         self.countdown = countdown
-        self.waiting = None
+        self.waiting = None       # Conn of the player waiting for an opponent; change it only via set_waiting()
         self.active = {}          # user_id -> Conn
         self.matches = set()      # running matches (keeps a reference to their tasks' objects)
+        self._tasks = set()       # background "lobby" broadcasts still being sent
+
+    def lobby_state(self):
+        """Message telling a browser who is waiting for a battle (None = nobody)."""
+        name = self.waiting.username if self.waiting is not None else None
+        return {"type": "lobby", "waiting": name}
+
+    def set_waiting(self, conn):
+        """Change the waiting player and tell everyone online, so players in
+        the menu see "<name> is waiting for a battle" and can join at once.
+
+        The change itself happens immediately (no await), so two players
+        pressing PLAY at the same moment can never both become "waiting".
+        Only the sending runs in the background.
+        """
+        if self.waiting is conn:
+            return
+        self.waiting = conn
+        msg = self.lobby_state()
+        task = asyncio.create_task(self._send_all(msg))
+        self._tasks.add(task)                       # keep a reference until it is done
+        task.add_done_callback(self._tasks.discard)
+
+    async def _send_all(self, msg):
+        await asyncio.gather(*(c.send(msg) for c in list(self.active.values())))
 
     async def connect(self, conn):
         """Register a freshly logged-in connection; close an older one of the same user."""
@@ -461,7 +486,7 @@ class Lobby:
         if self.active.get(conn.user_id) is conn:
             del self.active[conn.user_id]
         if self.waiting is conn:
-            self.waiting = None
+            self.set_waiting(None)
         if conn.match is not None:
             await conn.match.forfeit(conn.index)
 
@@ -473,13 +498,13 @@ class Lobby:
         # Forget a waiting player whose connection died, or who is the same
         # account (you cannot play against yourself).
         if other is not None and (other.ws.closed or other.user_id == conn.user_id):
-            other = self.waiting = None
+            other = None
         if other is None:
-            self.waiting = conn
+            self.set_waiting(conn)
             await conn.send({"type": "waiting"})
             return
         # Opponent found. The one who waited becomes player 0 (cyan, left).
-        self.waiting = None
+        self.set_waiting(None)
         match = Match(self, other, conn, self.countdown)
         self.matches.add(match)
         asyncio.create_task(match.run())   # runs in the background; join() returns at once
@@ -487,7 +512,7 @@ class Lobby:
     async def leave(self, conn):
         """Player pressed 'Cancel' while waiting."""
         if self.waiting is conn:
-            self.waiting = None
+            self.set_waiting(None)
             await conn.send({"type": "idle"})
 
 
@@ -653,6 +678,7 @@ async def websocket(request):
                 conn = Conn(ws, user)
                 await lobby.connect(conn)
                 await conn.send({"type": "auth_ok", "user": public_user(user)})
+                await conn.send(lobby.lobby_state())   # is someone waiting right now?
             elif kind == "join":
                 await lobby.join(conn)
             elif kind == "leave":

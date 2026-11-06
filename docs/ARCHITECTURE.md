@@ -154,6 +154,7 @@ Every message is a JSON object with a `type` field.
 | `kicked` | – | the same account connected from another window; this one is closed |
 | `waiting` | – | you are first in line |
 | `idle` | – | waiting was cancelled |
+| `lobby` | `waiting` (username or `null`) | who is waiting for an opponent. Sent right after `auth_ok` and to everyone online whenever it changes; the menu then shows "<name> is waiting for a battle!" and a "Fight <name>" button |
 | `match` | `you` (0/1), `grid` [w, h], `players` [user, user], `starts` [[x,y],[x,y]], `dirs` | an opponent was found |
 | `countdown` | `n` | seconds left; `0` = go |
 | `tick` | `t` (tick number), `heads` [[x,y],[x,y]], `crashed` [bool, bool] | one game step |

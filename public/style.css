@@ -204,6 +204,22 @@ input:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 12px rgb
 
 .welcome { margin: 0 0 16px; font: 500 0.9rem var(--display); letter-spacing: 0.1em; }
 .welcome strong { color: var(--cyan); text-shadow: 0 0 8px var(--cyan); }
+/* "<name> is waiting for a battle!" above the play button; pulses to catch the eye. */
+.lobby-info {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--orange);
+  border-radius: 4px;
+  background: rgba(255, 138, 31, 0.1);
+  box-shadow: 0 0 14px rgba(255, 138, 31, 0.35);
+  text-align: center;
+  font-size: 0.9rem;
+  animation: lobby-pulse 1.6s ease-in-out infinite;
+}
+.lobby-info strong { color: var(--orange); text-shadow: 0 0 8px var(--orange); }
+.lobby-info .bolt { margin-right: 4px; }
+@keyframes lobby-pulse { 50% { box-shadow: 0 0 26px rgba(255, 138, 31, 0.7); } }
+@media (prefers-reduced-motion: reduce) { .lobby-info { animation: none; } }
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 22px; }
 .stats div {
   padding: 10px 4px;

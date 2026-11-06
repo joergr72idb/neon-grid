@@ -63,6 +63,11 @@
       <div><span id="st-draws">0</span>Draws</div>
       <div><span id="st-played">0</span>Matches</div>
     </div>
+    <!-- Shown when another player is waiting for an opponent (server message "lobby"). -->
+    <p id="lobby-info" class="lobby-info" role="status" hidden>
+      <span class="bolt" aria-hidden="true">⚡</span>
+      <strong id="lobby-name"></strong> is waiting for a battle!
+    </p>
     <button id="btn-play" class="btn primary big" type="button">Enter the grid</button>
     <p id="menu-msg" class="error" role="alert"></p>
     <button id="btn-logout" class="btn link" type="button">Log out</button>

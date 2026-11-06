@@ -35,7 +35,7 @@ async def main():
 
             # accounts
             tokens = []
-            for name in ("alice", "bob"):
+            for name in ("alice", "bob", "carol"):
                 r = await http.post(base + "api/register", json={"username": name, "password": "secret1"})
                 assert r.status == 200, await r.text()
                 tokens.append((await r.json())["token"])
@@ -53,10 +53,26 @@ async def main():
             for ws, tok in ((a, tokens[0]), (b, tokens[1])):
                 await ws.send_json({"type": "auth", "token": tok})
                 await recv(ws, "auth_ok")
+            # carol sits in the menu and watches the lobby: right after login she
+            # learns that nobody is waiting, then sees alice wait, cancel, wait
+            # again, and disappear from the lobby once bob takes the battle.
+            c = await http.ws_connect(base + "ws")
+            await c.send_json({"type": "auth", "token": tokens[2]})
+            await recv(c, "auth_ok")
+            assert (await recv(c, "lobby"))["waiting"] is None
             await a.send_json({"type": "join"})
             await recv(a, "waiting")
+            assert (await recv(c, "lobby"))["waiting"] == "alice"
+            await a.send_json({"type": "leave"})
+            await recv(a, "idle")
+            assert (await recv(c, "lobby"))["waiting"] is None
+            await a.send_json({"type": "join"})
+            await recv(a, "waiting")
+            assert (await recv(c, "lobby"))["waiting"] == "alice"
             await b.send_json({"type": "join"})
             m = await recv(a, "match")
+            assert (await recv(c, "lobby"))["waiting"] is None
+            await c.close()
             assert m["you"] == 0 and [p["username"] for p in m["players"]] == ["alice", "bob"]
             counts = []
             while True:

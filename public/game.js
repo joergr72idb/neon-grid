@@ -5,7 +5,8 @@
  * What this file does:
  *   1. Login / registration through the JSON API (api/...).
  *   2. Switches between the screens of index.html (auth, menu, wait, game).
- *   3. Opens a WebSocket (ws) to the game server for matchmaking and the live game.
+ *   3. Opens a WebSocket (ws) to the game server as soon as you are logged in:
+ *      for matchmaking, the live game, and to hear who is waiting for a battle.
  *   4. Turns keyboard and touch input into steering commands.
  *   5. Draws the arena on three stacked <canvas> elements and plays sounds.
  *
@@ -37,6 +38,8 @@ let me = null;             // the logged-in user: {id, username, wins, losses, d
 let ws = null;             // the WebSocket while it is open
 let wsReady = null;        // Promise that resolves once the WebSocket is open and authenticated
 let game = null;           // state of the current match (see startGame), null outside a match
+let waitingName = null;    // username of the player waiting for an opponent (server "lobby" message), or null
+let reconnectTimer = 0;    // pending automatic reconnect after the connection dropped (see onSocketClosed)
 
 // ------------------------------------------------------------------ storage
 // The token is kept in localStorage so you stay logged in after a reload.
@@ -102,6 +105,20 @@ function renderMe(user) {
   $('#st-played').textContent = user.played;
 }
 
+/*
+ * Show who is waiting for a battle (or nothing). Our own name is never shown:
+ * the waiting player sees the "Waiting for an opponent…" screen instead.
+ * The play button then says "Fight <name>", and the browser tab title gets a
+ * ⚡ so players with the tab in the background notice it too.
+ */
+function renderLobby() {
+  const other = waitingName && me && waitingName !== me.username ? waitingName : null;
+  $('#lobby-info').hidden = !other;
+  $('#lobby-name').textContent = other || '';
+  $('#btn-play').textContent = other ? `Fight ${other}` : 'Enter the grid';
+  document.title = other ? `⚡ ${other} is waiting – NEON GRID` : 'NEON GRID';
+}
+
 // Fill the highscore table. textContent (not innerHTML) is used for user
 // names, so a name can never inject HTML into the page.
 async function loadHighscores() {
@@ -165,6 +182,7 @@ async function submitAuth(ev) {
     renderMe(data.user);
     $('#auth-form').reset();
     show('menu');
+    goOnline();
   } catch (e) {
     err.textContent = e.message;   // the server's error text, e.g. "That username is already taken."
   } finally {
@@ -176,7 +194,10 @@ async function logout() {
   try { await api('logout', {}); } catch { /* ignore */ }
   saveToken('');
   me = null;   // set before closing, so onSocketClosed() stays quiet
+  clearTimeout(reconnectTimer);
   if (ws) ws.close();
+  waitingName = null;
+  renderLobby();
   setAuthMode('login');
   show('auth');
 }
@@ -213,6 +234,17 @@ function connect() {
   return wsReady;
 }
 
+/*
+ * Connect in the background right after login, so the menu learns who is
+ * waiting for a battle. Errors are handled here: an invalid token sends the
+ * player back to the login form; a network error is retried by onSocketClosed().
+ */
+function goOnline() {
+  connect().catch((e) => {
+    if (e.message === 'auth') { saveToken(''); me = null; show('auth'); $('#auth-error').textContent = 'Please log in again.'; }
+  });
+}
+
 // Send a message to the server if the connection is open (otherwise drop it).
 function send(obj) {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
@@ -223,7 +255,16 @@ let kicked = false;
 
 // The connection closed. Tell the player what that means for them.
 function onSocketClosed() {
+  waitingName = null;   // we no longer know who is waiting
+  renderLobby();
   if (!me) return;   // we logged out ourselves: nothing to report
+  if (!kicked) {
+    // Try again in 3 s, so the menu keeps showing who is waiting. Not after
+    // "kicked": otherwise two windows of the same account would keep
+    // throwing each other out.
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(() => { if (me && !ws) goOnline(); }, 3000);
+  }
   if (kicked) {
     kicked = false;
     stopGame();
@@ -268,6 +309,7 @@ function handleMessage(msg) {
     case 'tick': onTick(msg); break;                // new head positions
     case 'end': onEnd(msg); break;                  // match over
     case 'kicked': kicked = true; break;            // connection is about to be closed
+    case 'lobby': waitingName = msg.waiting; renderLobby(); break;   // who is waiting for a battle
   }
 }
 
@@ -657,6 +699,7 @@ window.addEventListener('resize', layout);
       const data = await api('me');
       renderMe(data.user);
       show('menu');
+      goOnline();
       return;
     } catch (e) {
       if (e.status === 401) saveToken('');   // expired: forget it. Other errors: keep it for later.
