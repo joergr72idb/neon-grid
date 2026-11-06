@@ -8,6 +8,10 @@ needed: laptops play with the arrow keys or W A S D, phones and tablets by
 swiping or with an on-screen arrow pad. Every match counts for the shared
 highscore list.
 
+**Runs perfectly on smartphones:** open the game address in the phone's
+browser and play, upright or sideways. A phone can even play against a
+laptop.
+
 NEON GRID is made for places where people meet: a LAN party, a user group,
 a retro computer show, or just two browser windows at home. The notebook
 can even open its own Wi-Fi, so players only join it and the game opens by
@@ -32,7 +36,8 @@ a light trail; the cycles get faster the longer the match runs.*
 - **Fair by design:** the server is the referee. Browsers only send
   steering commands, so nobody can cheat by changing the JavaScript, and
   both players always see the same game.
-- **Keyboard and touch:** arrow keys/WASD, swipe, or the arrow pad (below
+- **Smartphone-ready, keyboard and touch:** runs perfectly in the browser
+  of phones and tablets. Controls: arrow keys/WASD, swipe, or the arrow pad (below
   the arena in portrait, beside it in landscape).
 - **Four ways to run it**, from one computer up to a public web server
   (see below).
