@@ -112,7 +112,17 @@
       </div>
     </div>
   </div>
-  <p class="hint">Steer with the <kbd>←</kbd> <kbd>↑</kbd> <kbd>→</kbd> <kbd>↓</kbd> arrow keys (or WASD). Don't hit walls or light trails.</p>
+  <!-- On-screen arrow pad for phones/tablets. style.css only shows it on
+       touch screens held upright; in landscape players steer by swiping. -->
+  <div id="dpad" class="dpad" aria-label="Steering">
+    <button type="button" class="dpad-btn up" data-dir="up" aria-label="Up">▲</button>
+    <button type="button" class="dpad-btn left" data-dir="left" aria-label="Left">◀</button>
+    <button type="button" class="dpad-btn right" data-dir="right" aria-label="Right">▶</button>
+    <button type="button" class="dpad-btn down" data-dir="down" aria-label="Down">▼</button>
+  </div>
+  <!-- Two versions of the help text; style.css shows the one that fits the device. -->
+  <p class="hint hint-keys">Steer with the <kbd>←</kbd> <kbd>↑</kbd> <kbd>→</kbd> <kbd>↓</kbd> arrow keys (or WASD). Don't hit walls or light trails.</p>
+  <p class="hint hint-touch">Swipe in the direction you want to turn. Don't hit walls or light trails.</p>
 </section>
 
 <script src="game.js"></script>

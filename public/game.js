@@ -6,10 +6,11 @@
  *   1. Login / registration through the JSON API (api/...).
  *   2. Switches between the screens of index.html (auth, menu, wait, game).
  *   3. Opens a WebSocket (ws) to the game server for matchmaking and the live game.
- *   4. Draws the arena on three stacked <canvas> elements and plays sounds.
+ *   4. Turns keyboard and touch input into steering commands.
+ *   5. Draws the arena on three stacked <canvas> elements and plays sounds.
  *
- * The client never decides who crashed. It sends the pressed arrow keys to
- * the server ("turn") and draws whatever positions the server reports in its
+ * The client never decides who crashed. It sends the steering input (arrow
+ * keys, swipes or the touch arrow pad, see steer()) to the server ("turn") and draws whatever positions the server reports in its
  * "tick" messages. The server is the referee; see server/server.py.
  *
  * All URLs are relative ('api/login', 'ws'), so the page works both at
@@ -321,9 +322,20 @@ function layout() {
   if (!game) return;
   const arena = $('#arena');
   const availW = Math.max(200, document.documentElement.clientWidth - 32);
-  const reserved = document.querySelector('.top').offsetHeight + 130;   // header + HUD + hint text
-  const availH = Math.max(160, window.innerHeight - reserved);
-  game.cell = Math.max(3, Math.floor(Math.min(availW / game.w, availH / game.h)));
+  // Height left for the arena = window minus everything above it (header,
+  // HUD) and below it: the visible hint text and the touch arrow pad
+  // (offsetHeight is 0 for hidden ones), their 14 px margins, the arena
+  // border and the page's bottom padding.
+  const above = arena.getBoundingClientRect().top + window.scrollY;
+  let below = 2 + 24;
+  for (const el of [$('#dpad'), ...document.querySelectorAll('.hint')]) {
+    if (el.offsetHeight) below += el.offsetHeight + 14;
+  }
+  const availH = Math.max(160, window.innerHeight - above - below);
+  const fit = Math.min(availW / game.w, availH / game.h);
+  // Whole pixels keep the grid lines sharp. Narrow phones (fit < 3 px) get a
+  // fractional cell size instead, so the arena is never wider than the screen.
+  game.cell = fit >= 3 ? Math.floor(fit) : Math.max(1.5, fit);
   const cssW = game.w * game.cell;
   const cssH = game.h * game.cell;
   arena.style.width = cssW + 'px';
@@ -554,15 +566,65 @@ function beepNoise() {
   src.start();
 }
 
-// ------------------------------------------------------------------ wiring
-// Steering: send arrow keys / WASD to the server while a match is on.
-// preventDefault stops the arrow keys from scrolling the page.
-document.addEventListener('keydown', (ev) => {
-  const dir = KEYS[ev.key];
-  if (!dir || !game || game.over || $('#screen-game').hidden) return;
-  ev.preventDefault();
+// ------------------------------------------------------------------ steering
+// All three input methods (keyboard, swipe, arrow pad) end up here. Returns
+// false when there is nothing to steer, so callers can leave the event alone.
+function steer(dir) {
+  if (!dir || !game || game.over || $('#screen-game').hidden) return false;
   send({ type: 'turn', dir });
+  return true;
+}
+
+// Keyboard: arrow keys / WASD. preventDefault stops the arrow keys from scrolling the page.
+document.addEventListener('keydown', (ev) => {
+  if (steer(KEYS[ev.key])) ev.preventDefault();
 });
+
+/*
+ * Swipe steering on touch screens, anywhere on the game screen.
+ * A finger that moves more than SWIPE_PX in one direction counts as a turn
+ * in that direction. The start point then moves to the current finger
+ * position, so one continuous L-shaped stroke can give two turns, e.g. up
+ * then left. Buttons (arrow pad, "Play again") are left to their own handlers.
+ * CSS sets touch-action: none on the game screen, so the browser doesn't
+ * scroll or zoom while the finger moves.
+ */
+const SWIPE_PX = 24;
+let swipe = null;   // {id, x, y} of the finger being tracked, or null
+
+$('#screen-game').addEventListener('pointerdown', (ev) => {
+  if (ev.pointerType === 'mouse' || ev.target.closest('button')) return;
+  swipe = { id: ev.pointerId, x: ev.clientX, y: ev.clientY };
+});
+$('#screen-game').addEventListener('pointermove', (ev) => {
+  if (!swipe || ev.pointerId !== swipe.id) return;
+  const dx = ev.clientX - swipe.x;
+  const dy = ev.clientY - swipe.y;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_PX) return;
+  // The bigger movement wins: mostly sideways = left/right, mostly vertical = up/down.
+  const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+  steer(dir);
+  swipe.x = ev.clientX;
+  swipe.y = ev.clientY;
+});
+for (const type of ['pointerup', 'pointercancel']) {
+  $('#screen-game').addEventListener(type, (ev) => {
+    if (swipe && ev.pointerId === swipe.id) swipe = null;
+  });
+}
+
+// Arrow pad: react on pointerdown (finger touches) instead of click (finger
+// lifts), which saves ~100 ms, an eternity at 20 ticks per second.
+document.querySelectorAll('.dpad-btn').forEach((btn) => {
+  btn.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();   // no focus ring, no text selection, no double-tap zoom
+    steer(btn.dataset.dir);
+    btn.classList.add('pressed');   // visual feedback, removed shortly after
+    setTimeout(() => btn.classList.remove('pressed'), 120);
+  });
+});
+
+// ------------------------------------------------------------------ wiring
 
 // Buttons and form.
 document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => setAuthMode(t.dataset.mode)));

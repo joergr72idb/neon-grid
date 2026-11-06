@@ -1,7 +1,8 @@
 # NEON GRID
 
 Browser game for two players: light-cycle duels on a neon grid, steered with the
-arrow keys (or WASD). Players create an account, every match is counted, and the
+arrow keys (or WASD) on a computer, or by swiping / an on-screen arrow pad on
+phones and tablets. Players create an account, every match is counted, and the
 start screen shows a highscore list.
 
 - **public/** – the web page (HTML5 canvas, served by Apache)

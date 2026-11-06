@@ -329,7 +329,7 @@ flowchart TD
     M -->|Menu| MENU
     C -->|kicked| N["Remember 'kicked'"] --> B
 
-    KEY[/"Key pressed: arrow key or WASD"/] --> KEY1{"Match running?"}
+    KEY[/"Input: arrow key / WASD,<br/>swipe of 24 px or more,<br/>or arrow pad touched"/] --> KEY1{"Match running?"}
     KEY1 -->|yes| KEY2[/"Send turn + direction"/]
     KEY1 -->|no| KEY3(["ignore"])
 

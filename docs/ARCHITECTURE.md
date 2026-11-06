@@ -48,7 +48,7 @@ use is password hashing (`asyncio.to_thread`), which is slow on purpose.
 |---|---|---|
 | `server/server.py` | 710 | all server logic, see the overview in the module docstring |
 | `public/index.html` | 120 | markup of all screens |
-| `public/game.js` | 590 | client logic |
+| `public/game.js` | 650 | client logic |
 | `public/style.css` | 330 | design |
 | `scripts/lan-party.sh` | 135 | meetup hotspot |
 | `deploy/neongrid.service` | 22 | systemd service for the public server |
@@ -107,6 +107,9 @@ sequenceDiagram
 - Leaving or losing the connection during the countdown or the match is a
   **forfeit**: you lose and the other player wins.
 - Speed starts at 14 ticks/s and rises by 1 every 120 ticks, up to 22 ticks/s.
+- Input: keyboard (arrow keys/WASD), swipes and the on-screen arrow pad all call
+  the same `steer()` function in game.js, which sends `turn`. A swipe counts once
+  the finger has moved 24 px, and one L-shaped stroke can give two turns.
 - Turns: a 180° turn and a turn to the current direction are ignored. Up to 3
   turns are queued, and at most one is applied per tick. So quick double-taps
   like ↑ ← both count.

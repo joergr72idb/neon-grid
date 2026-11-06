@@ -22,8 +22,10 @@ built, and [PAP.md](PAP.md) has the program flowcharts.
 - Linux (tested on Debian 13; Ubuntu works the same way)
 - Python 3.9 or newer with the `venv` module (`sudo apt install python3 python3-venv`)
 - A modern browser (Firefox, Chrome, Edge, Safari)
-- **Players need a keyboard.** The cycles are steered with the arrow keys or
-  W A S D. Phones and tablets can open the page, but they can't steer yet.
+- **Controls:** on a computer, the arrow keys or W A S D. On phones and
+  tablets, swipe in the direction you want to turn. Held upright, the screen
+  also shows an arrow pad below the arena. Held sideways, the arena is bigger,
+  but there is only swiping.
 
 **Install the Python environment** (only once, or again after deleting `.venv/`):
 
@@ -198,6 +200,8 @@ The script then does the following:
 ```
 
 Show this box to the players, for example on a projector, or write it on a flipchart.
+Players can use laptops or **phones**: the phone just has to join the Wi-Fi and
+open the game address. Phones steer by swiping or with the arrow pad.
 
 ### C.5 Players join
 

@@ -310,6 +310,50 @@ input:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 12px rgb
 .ov-buttons .btn.primary { width: auto; }
 
 .hint { margin: 12px 0 0; text-align: center; color: var(--muted); font-size: 0.85rem; }
+
+/* ---------- touch controls ----------
+   (pointer: coarse) = the main input is a finger, i.e. phone or tablet.
+   On those devices the touch hint replaces the keyboard hint, and the
+   arrow pad appears below the arena when the device is held upright. */
+.hint-touch, .dpad { display: none; }
+@media (pointer: coarse) {
+  .hint-keys { display: none; }
+  .hint-touch { display: block; }
+  /* No scrolling, pinch-zoom or double-tap zoom while playing: every
+     finger movement on the game screen is a steering swipe. */
+  .game { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+}
+@media (pointer: coarse) and (orientation: portrait) {
+  .dpad {
+    display: grid;
+    grid-template: "  .   up    .  " 64px
+                   "left  .   right" 64px
+                   "  .  down   .  " 64px / 64px 64px 64px;
+    gap: 6px;
+    justify-content: center;
+    margin-top: 14px;
+  }
+}
+/* Phone held sideways: very little height, so hide the header during a match. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+  body.in-game .top { display: none; }
+  body.in-game .game { margin-top: 8px; }
+}
+.dpad-btn {
+  border: 1px solid var(--cyan);
+  border-radius: 10px;
+  background: rgba(24, 231, 255, 0.08);
+  color: var(--cyan);
+  font-size: 1.4rem;
+  text-shadow: 0 0 8px var(--cyan);
+  box-shadow: 0 0 12px rgba(24, 231, 255, 0.3);
+  -webkit-tap-highlight-color: transparent;
+}
+.dpad-btn.up { grid-area: up; }
+.dpad-btn.down { grid-area: down; }
+.dpad-btn.left { grid-area: left; }
+.dpad-btn.right { grid-area: right; }
+.dpad-btn.pressed { background: rgba(24, 231, 255, 0.35); box-shadow: 0 0 22px rgba(24, 231, 255, 0.7); }
 kbd {
   display: inline-block;
   min-width: 1.6em;
