@@ -50,8 +50,7 @@ use is password hashing (`asyncio.to_thread`), which is slow on purpose.
 | `public/index.html` | 120 | markup of all screens |
 | `public/game.js` | 650 | client logic |
 | `public/style.css` | 330 | design |
-| `scripts/lan-party.sh` | 135 | meetup hotspot (internet via phone) |
-| `scripts/neongrid-ap.sh` | 197 | game access point without internet, with captive portal |
+| `scripts/neongrid-ap.sh` | 280 | game access point without internet, with captive portal |
 | `deploy/neongrid.service` | 22 | systemd service for the public server |
 | `deploy/neongrid-apache.conf` | 18 | Apache reverse proxy snippet |
 | `tests/smoke_test.py` | 96 | end-to-end test |

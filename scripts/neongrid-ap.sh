@@ -8,12 +8,15 @@
 #
 #   scripts/neongrid-ap.sh                              # Wi-Fi Neongrid / 1234neongrid
 #   SSID=Grid2 PASSWORD=secret123 scripts/neongrid-ap.sh
+#   WIFI_DEV=wlx00c0ca123456 scripts/neongrid-ap.sh     # pick the Wi-Fi interface by hand
 #
-# Ctrl+C stops the game, removes the access point and reconnects your normal Wi-Fi.
+# The Wi-Fi interface is found automatically: the first one NetworkManager
+# manages whose card supports access point (AP) mode.
+# Ctrl+C stops the game and removes the access point again.
 # Needs administrator rights (it asks for your sudo password).
 #
-# How it works (details and troubleshooting: docs/SETUP.md, section C2;
-# flowchart: docs/PAP.md, chart 13):
+# How it works (details and troubleshooting: docs/SETUP.md, section C;
+# flowchart: docs/PAP.md, chart 12):
 #   1. NetworkManager switches the Wi-Fi card to access-point mode and runs a
 #      small DHCP/DNS server (dnsmasq) that hands out addresses 10.42.0.x.
 #   2. An extra dnsmasq setting answers EVERY name with this computer's
@@ -23,7 +26,8 @@
 #   4. The game server runs with --portal: the connectivity checks of phones
 #      (e.g. connectivitycheck.gstatic.com, captive.apple.com) get a redirect
 #      to the game, so the phone shows it as the network's login page.
-#   5. On exit everything is undone (see cleanup()).
+#   5. On exit everything is undone (see cleanup()). The script does not
+#      reconnect any other Wi-Fi afterwards.
 #
 # Requirements: Linux with NetworkManager, nftables and dnsmasq-base, a Wi-Fi
 # card that supports access point (AP) mode, and the Python environment in
@@ -38,6 +42,7 @@ export PATH="$PATH:/usr/local/sbin:/usr/sbin:/sbin"
 SSID="${SSID:-Neongrid}"
 PASSWORD="${PASSWORD:-1234neongrid}"
 PORT="${PORT:-8765}"                       # internal port of the game server
+WIFI_DEV="${WIFI_DEV:-}"                   # Wi-Fi interface; empty = find it automatically
 IP="10.42.0.1"                             # this computer's address on the access point
 CON="neongrid-ap"                          # name of the temporary NetworkManager connection
 PORTAL_CONF="/etc/NetworkManager/dnsmasq-shared.d/neongrid-portal.conf"
@@ -50,7 +55,7 @@ DIR="$(cd "$(dirname "$0")/.." && pwd)"
 # Restart this script through sudo; `env` passes the settings along.
 if [ "$EUID" -ne 0 ]; then
     echo "Administrator rights are needed for the access point. Asking sudo…"
-    exec sudo env SSID="$SSID" PASSWORD="$PASSWORD" PORT="$PORT" "$0" "$@"
+    exec sudo env SSID="$SSID" PASSWORD="$PASSWORD" PORT="$PORT" WIFI_DEV="$WIFI_DEV" "$0" "$@"
 fi
 # The game server itself runs as the normal user who called sudo, so the
 # database file keeps belonging to them (and Python doesn't run as root).
@@ -82,22 +87,75 @@ if ss -ltn "sport = :$PORT" | grep -q LISTEN; then
     exit 1
 fi
 
+# --- Find the Wi-Fi interface -------------------------------------------------------
 nmcli radio wifi on
-# Find the first Wi-Fi device (e.g. wlp0s20f3) and remember which Wi-Fi it is
-# connected to right now, so we can reconnect to it at the end.
-WIFI_DEV="$(nmcli -t -f DEVICE,TYPE device | awk -F: '$2=="wifi"{print $1; exit}')"
-if [ -z "$WIFI_DEV" ]; then
-    echo "No Wi-Fi device found." >&2
+
+# True if the card behind interface $1 can be an access point: `iw phy … info`
+# lists "* AP" under "Supported interface modes". Without iw we can't check,
+# so we assume yes (NetworkManager reports the error later if not).
+supports_ap() {
+    command -v iw >/dev/null || return 0
+    local phy
+    phy="$(cat "/sys/class/net/$1/phy80211/name" 2>/dev/null)" || return 0
+    # awk reads the whole output (no early exit, so iw never gets SIGPIPE under
+    # pipefail) and only looks at the lines of the "Supported interface modes" list.
+    iw phy "$phy" info | awk '/Supported interface modes/ {f=1; next}
+                              f && /^[[:space:]]+\* / {if ($0 ~ /\* AP$/) ap=1; next}
+                              {f=0}
+                              END {exit !ap}'
+}
+
+# All Wi-Fi interfaces with their NetworkManager state, e.g. "wlp2s0:connected".
+WIFI_LIST="$(nmcli -t -f DEVICE,TYPE,STATE device | awk -F: '$2=="wifi"{print $1":"$3}')"
+if [ -z "$WIFI_LIST" ]; then
+    echo "No Wi-Fi interface found. Is the Wi-Fi switched off (rfkill list) or its firmware missing?" >&2
     exit 1
 fi
-PREV_WIFI="$(nmcli -g GENERAL.CONNECTION device show "$WIFI_DEV" 2>/dev/null || true)"
-[ "$PREV_WIFI" = "$CON" ] && PREV_WIFI=""
+
+if [ -n "$WIFI_DEV" ]; then
+    # Chosen by hand: it must exist and be managed by NetworkManager.
+    state="$(printf '%s\n' "$WIFI_LIST" | awk -F: -v d="$WIFI_DEV" '$1==d{print $2}')"
+    if [ -z "$state" ]; then
+        echo "WIFI_DEV=$WIFI_DEV is not a Wi-Fi interface. Available:" >&2
+        printf '  %s\n' $WIFI_LIST >&2
+        exit 1
+    fi
+    if [ "$state" = "unmanaged" ]; then
+        echo "$WIFI_DEV is not managed by NetworkManager (see docs/INSTALL-DEBIAN.md, step 2.2)." >&2
+        exit 1
+    fi
+    supports_ap "$WIFI_DEV" || echo "Warning: $WIFI_DEV does not list access point (AP) mode – trying anyway." >&2
+else
+    # Automatic: the first managed interface whose card supports AP mode.
+    managed=0
+    while IFS=: read -r dev state; do
+        [ "$state" = "unmanaged" ] && continue
+        managed=1
+        if supports_ap "$dev"; then
+            WIFI_DEV="$dev"
+            break
+        fi
+    done <<< "$WIFI_LIST"
+    if [ -z "$WIFI_DEV" ]; then
+        if [ "$managed" = 0 ]; then
+            echo "Wi-Fi interface(s) found, but NetworkManager doesn't manage them:" >&2
+            printf '  %s\n' $WIFI_LIST >&2
+            echo "See docs/INSTALL-DEBIAN.md, step 2.2." >&2
+        else
+            echo "None of the Wi-Fi cards supports access point (AP) mode:" >&2
+            printf '  %s\n' $WIFI_LIST >&2
+            echo "A USB Wi-Fi stick with AP support helps. Force one with WIFI_DEV=<interface>." >&2
+        fi
+        exit 1
+    fi
+fi
+echo "Wi-Fi interface: $WIFI_DEV"
 
 # --- Cleanup --------------------------------------------------------------------
 # Runs on Ctrl+C, on kill and on any exit (also after errors): stop the
-# server, remove the port rule and DNS setting, delete the access point and
-# reconnect the previous Wi-Fi. Every step is safe to run even if the
-# matching setup step never happened.
+# server, remove the port rule and DNS setting, and delete the access point.
+# Every step is safe to run even if the matching setup step never happened.
+# No other Wi-Fi is reconnected; the interface is simply left free.
 SERVER_PID=""
 STOPPED_DNSMASQ=0
 cleanup() {
@@ -114,10 +172,7 @@ cleanup() {
         echo "Restarting the system dnsmasq service…"
         systemctl start dnsmasq
     fi
-    if [ -n "$PREV_WIFI" ]; then
-        echo "Reconnecting to '$PREV_WIFI'…"
-        nmcli connection up "$PREV_WIFI" >/dev/null 2>&1 || echo "Could not reconnect – do it in the network menu."
-    fi
+    echo "Access point removed."
 }
 trap cleanup INT TERM EXIT
 
@@ -201,6 +256,7 @@ cat <<EOF
 
      Wi-Fi:       $SSID
      Password:    $PASSWORD
+     Interface:   $WIFI_DEV
      IP address:  $IP
      Game:        http://$IP/
 

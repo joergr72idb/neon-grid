@@ -7,7 +7,7 @@ your normal user, `sudo` is added where administrator rights are needed.
 | Part | You get | Needed for |
 |---|---|---|
 | [1. Base setup](#part-1--base-setup-every-machine) | packages, the code, Python environment, tests, first local game | **every** machine |
-| [2. Meetup notebook](#part-2--meetup-notebook-hotspot-and-game-access-point) | own Wi-Fi hotspot or offline game access point with jump page | LAN parties, meetups, shows |
+| [2. Game access point notebook](#part-2--game-access-point-notebook) | own Wi-Fi without internet, game opens by itself (jump page) | LAN parties, meetups, shows |
 | [3. Public web server](#part-3--public-web-server-apache--https) | game at `https://your-domain/neongrid/`, starts at boot, daily backups | internet server |
 | [4. Maintenance](#part-4--maintenance) | updates, backups, reset, uninstall | servers |
 
@@ -18,8 +18,9 @@ for. Day-to-day use of every mode is described in [SETUP.md](SETUP.md).
 > step by step in a clean `debian:13` container (Debian 13.7, Python 3.13.5):
 > both tests pass, Apache delivers the page, the API and the WebSocket
 > through the proxy, and the database is created in `/var/lib/neongrid`.
-> Part 2 needs real Wi-Fi hardware and follows the scripts, which were tested
-> on the notebook.
+> Part 2 needs real Wi-Fi hardware and follows `scripts/neongrid-ap.sh`; its
+> automatic Wi-Fi interface selection was tested with simulated `nmcli`/`iw`
+> output only, not yet on real cards.
 
 ---
 
@@ -29,7 +30,7 @@ In the Debian installer, at **"Software selection"**:
 
 | Machine | Select |
 |---|---|
-| **Meetup notebook** (part 2) | a desktop environment (GNOME, KDE Plasma or Xfce) + *standard system utilities*. The desktop brings **NetworkManager**, which the hotspot scripts need. |
+| **Game access point notebook** (part 2) | a desktop environment (GNOME, KDE Plasma or Xfce) + *standard system utilities*. The desktop brings **NetworkManager**, which the access point script needs. |
 | **Web server** (part 3) | *SSH server* + *standard system utilities*, no desktop. |
 | Just playing at home (part 1) | anything |
 
@@ -147,14 +148,12 @@ Part 1 is done. Continue with part 2 or part 3.
 
 ---
 
-## Part 2 – Meetup notebook (hotspot and game access point)
+## Part 2 – Game access point notebook
 
-Two scripts turn the notebook into a Wi-Fi network for the players:
-
-| Script | Internet for the players | Game address |
-|---|---|---|
-| `scripts/lan-party.sh` | yes, from a phone via USB tethering | `http://10.42.0.1:8765/` |
-| `scripts/neongrid-ap.sh` | no; joining devices open the game by themselves (jump page) | `http://10.42.0.1/` |
+`scripts/neongrid-ap.sh` turns the notebook into a Wi-Fi access point that
+serves only the game: own Wi-Fi **Neongrid**, no internet needed, and joining
+phones and laptops open the game by themselves (jump page) at
+`http://10.42.0.1/`.
 
 ### 2.1 Packages
 
@@ -164,15 +163,15 @@ sudo apt install -y network-manager dnsmasq-base nftables iw qrencode
 
 | Package | Why |
 |---|---|
-| `network-manager` | creates the hotspot / access point (`nmcli`); already there with a desktop |
-| `dnsmasq-base` | NetworkManager uses it to hand out IP addresses and answer DNS on the hotspot |
-| `nftables` | port 80 → game server, for the access point |
-| `iw` | check whether the Wi-Fi card can be an access point |
-| `qrencode` | optional: the access point prints a QR code to join the Wi-Fi |
+| `network-manager` | creates the access point (`nmcli`); already there with a desktop |
+| `dnsmasq-base` | NetworkManager uses it to hand out IP addresses and answer DNS on the access point |
+| `nftables` | forwards port 80 to the game server |
+| `iw` | lets the script find a Wi-Fi card that can be an access point |
+| `qrencode` | optional: the script prints a QR code to join the Wi-Fi |
 
 > Install **`dnsmasq-base`, not `dnsmasq`**. The full `dnsmasq` package starts
-> its own service on DNS port 53 and blocks the hotspot. The scripts pause that
-> service if it runs, but you don't need it at all.
+> its own service on DNS port 53 and blocks the access point. The script pauses
+> that service if it runs, but you don't need it at all.
 
 **Wi-Fi card without firmware?** If `nmcli device` shows no `wifi` device,
 the firmware is probably missing. Check `sudo dmesg | grep -i firmware`, then
@@ -197,39 +196,42 @@ With a desktop installation this is already the case. Check:
 nmcli device
 ```
 
-The Wi-Fi device (e.g. `wlp2s0`) must **not** say `unmanaged`. If it does,
+The Wi-Fi interface (e.g. `wlp2s0`) must **not** say `unmanaged`. If it does,
 the Wi-Fi was configured by the installer in `/etc/network/interfaces`, and
 NetworkManager leaves it alone. Fix:
 
 ```bash
 sudo cp /etc/network/interfaces /etc/network/interfaces.bak
 sudo nano /etc/network/interfaces
-#   delete (or put "#" in front of) every block that mentions the Wi-Fi device,
+#   delete (or put "#" in front of) every block that mentions the Wi-Fi interface,
 #   e.g. "allow-hotplug wlp2s0", "iface wlp2s0 inet dhcp" and the wpa-* lines.
 #   Keep the "lo" (loopback) lines.
 sudo systemctl restart NetworkManager
-nmcli device wifi connect "YourHomeWifi" --ask   # reconnect your normal Wi-Fi
 ```
 
-### 2.3 Can the Wi-Fi card be an access point?
+### 2.3 Which Wi-Fi card is used?
+
+You don't have to configure anything: the script picks the **first Wi-Fi
+interface that NetworkManager manages and whose card supports access point
+(AP) mode**, and prints it at the start (`Wi-Fi interface: wlp2s0`). With a
+second card, for example a USB Wi-Fi stick, it takes whichever of the two can
+be an access point.
+
+To see what your cards can do:
 
 ```bash
-iw list | grep -A 10 "Supported interface modes"
+iw list | grep -A 10 "Supported interface modes"     # needs "* AP"
 ```
 
-The list must contain **`* AP`**. Almost all Intel, Atheros and MediaTek cards
-can do this. If not, a cheap USB Wi-Fi stick with AP support helps.
+Almost all Intel, Atheros and MediaTek cards can do this. If yours can't, a
+cheap USB Wi-Fi stick with AP support helps. To choose a card by hand
+(`nmcli device` lists the names):
 
-### 2.4 Rights for `nmcli`
+```bash
+WIFI_DEV=wlx00c0ca123456 scripts/neongrid-ap.sh
+```
 
-The scripts change Wi-Fi settings with `nmcli`. In a **desktop session** your
-user may do that without a password. Over **SSH** NetworkManager answers
-*"Not authorized"*; then run `lan-party.sh` with `sudo -E`, or start the
-scripts from the desktop. `neongrid-ap.sh` always asks for the sudo password
-by itself (it also writes a DNS setting and a firewall rule) and still runs
-the game server as your normal user.
-
-### 2.5 Dry run at home
+### 2.4 Dry run at home
 
 Do this once at home, so there are no surprises at the event:
 
@@ -238,32 +240,37 @@ cd ~/neon-grid
 scripts/neongrid-ap.sh          # Wi-Fi "Neongrid", password "1234neongrid"
 ```
 
+The script asks for your sudo password (it writes a DNS setting and a
+firewall rule) and still runs the game server as your normal user.
+
 1. Join the Wi-Fi **Neongrid** with a phone. After a few seconds it should
    show *"Sign in to network"* and open the game.
 2. Play a round against a second device (or a browser window on the notebook
    at `http://10.42.0.1/`).
-3. Press **Ctrl+C**. The script removes the access point and reconnects your
-   normal Wi-Fi.
+3. Press **Ctrl+C**. The script removes the access point again. It does not
+   reconnect any other Wi-Fi; connect in the network menu if you need one.
 
-For the hotspot with internet, connect a phone with USB tethering and run
-`scripts/lan-party.sh`. Own Wi-Fi name and password for either script:
+Own Wi-Fi name and password (8–63 characters):
 
 ```bash
 SSID=LUG-GRID PASSWORD=secret123 scripts/neongrid-ap.sh
 ```
 
+> While the access point runs, the Wi-Fi card can't be connected to another
+> Wi-Fi. If you control the notebook **over SSH**, use a cable connection, not
+> the Wi-Fi the access point is about to take over.
+
 Everything about the event itself (what players see, phone quirks, full
-troubleshooting tables) is in [SETUP.md, sections C and C2](SETUP.md#c-meetup-mode-own-wi-fi-hotspot).
+troubleshooting table) is in [SETUP.md, section C](SETUP.md#c-game-access-point-own-wi-fi-jump-page).
 
-### 2.6 If something went wrong
+### 2.5 If something went wrong
 
-If a script was killed hard (power loss, closed terminal), clean up by hand:
+If the script was killed hard (power loss, closed terminal), clean up by hand:
 
 ```bash
 sudo nft delete table ip neongrid_portal
 sudo rm -f /etc/NetworkManager/dnsmasq-shared.d/neongrid-portal.conf
 nmcli connection delete neongrid-ap
-nmcli connection delete neongrid-hotspot
 ```
 
 Starting the script again also removes leftovers.
@@ -550,4 +557,4 @@ sudo userdel neongrid
 | page loads, but login fails / "connection lost" | The proxy modules are missing: `sudo a2enmod proxy proxy_http proxy_wstunnel && sudo systemctl restart apache2`. |
 | `/neongrid/` gives 404 | The snippet is not active: `sudo a2enconf neongrid && sudo systemctl reload apache2`. |
 | certbot: *"Could not find a VirtualHost"* / connection error | `ServerName` missing (step 3.6), DNS doesn't point to the server yet, or port 80 is blocked (firewall, router). |
-| hotspot / access point problems | Part 2 and the troubleshooting tables in [SETUP.md](SETUP.md#c7-troubleshooting-meetup-mode). |
+| access point problems | Part 2 and the troubleshooting table in [SETUP.md, C.5](SETUP.md#c5-troubleshooting). |

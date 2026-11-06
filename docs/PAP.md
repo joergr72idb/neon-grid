@@ -37,8 +37,7 @@ block into https://mermaid.live to view it or export it as PNG/SVG.
 | 9 | End of a match | `server.py` → `Match.finish`, `Lobby.disconnect` |
 | 10 | Browser: page start and menu | `game.js` → `init`, `submitAuth`, `play` |
 | 11 | Browser: during a match | `game.js` → `handleMessage`, `onTick`, `onEnd` |
-| 12 | Meetup hotspot script | `scripts/lan-party.sh` |
-| 13 | Game access point with jump page | `scripts/neongrid-ap.sh`, `server.py` → `captive_portal_middleware` |
+| 12 | Game access point with jump page | `scripts/neongrid-ap.sh`, `server.py` → `captive_portal_middleware` |
 
 ---
 
@@ -343,48 +342,7 @@ flowchart TD
 
 "Play again" goes back to the menu and immediately sends `join` again (connector A).
 
-## 12. Meetup hotspot script (`scripts/lan-party.sh`)
-
-```mermaid
-flowchart TD
-    A(["Start: scripts/lan-party.sh"]) --> B[/"Read SSID, PASSWORD, PORT<br/>(defaults NEON-GRID, lightcycle, 8765)"/]
-    B --> C{"Password at least<br/>8 characters?"}
-    C -->|no| E1[/"Error: PASSWORD too short"/] --> Z1(["End, nothing changed"])
-    C -->|yes| D{"Python environment<br/>.venv present?"}
-    D -->|no| E2[/"Error: run the one-time setup"/] --> Z1
-    D -->|yes| E{"Wi-Fi device found?"}
-    E -->|no| E3[/"Error: No Wi-Fi device"/] --> Z1
-    E -->|yes| F["Remember the currently<br/>connected Wi-Fi"]
-    F --> G{"Wired connection<br/>(USB tethering) active?"}
-    G -->|yes| K
-    G -->|no| H[/"Plug in your phone and<br/>switch on USB tethering"/]
-    H --> I["Wait 2 s, check again<br/>(up to 60 times = 2 min)"]
-    I --> J{"Tethering found?"}
-    J -->|no| E4[/"Error: no USB tethering"/] --> Z1
-    J -->|yes| K[/"Internet via: device"/]
-    K --> L["Install cleanup for Ctrl+C / exit"]
-    L --> M["Delete leftover hotspot connection"]
-    M --> N["Create hotspot with nmcli:<br/>SSID, WPA2 password, 2.4 GHz,<br/>no autoconnect"]
-    N --> O["Wait up to 15 s for the hotspot IP<br/>(fallback 10.42.0.1)"]
-    O --> P{"ping 1.1.1.1 OK?"}
-    P -->|yes| P1["Internet: yes"]
-    P -->|no| P2["Internet: NO"]
-    P1 & P2 --> Q["Start game server in the background<br/>--host 0.0.0.0 --static public"]
-    Q --> R[/"Print box: Wi-Fi name, password,<br/>game address, internet status"/]
-    R --> S["Wait until the server ends"]
-    S --> T["Ctrl+C pressed or server ended"]
-    T --> CL
-
-    subgraph cleanup["cleanup()"]
-        CL["Stop game server"] --> CL2["Switch off and delete hotspot connection"]
-        CL2 --> CL3{"Was connected to a<br/>Wi-Fi before?"}
-        CL3 -->|yes| CL4["Reconnect to it"]
-        CL3 -->|no| CL5
-        CL4 --> CL5(["End"])
-    end
-```
-
-## 13. Game access point with jump page (`scripts/neongrid-ap.sh`)
+## 12. Game access point with jump page (`scripts/neongrid-ap.sh`)
 
 ```mermaid
 flowchart TD
@@ -393,17 +351,25 @@ flowchart TD
     B -->|yes| C{"Password 8–63 chars,<br/>.venv, nmcli and nft present,<br/>port 8765 free?"}
     C -->|no| E1[/"Error message"/] --> Z1(["End, nothing changed"])
     C -->|yes| D["Switch Wi-Fi radio on"]
-    D --> E{"Wi-Fi device found?"}
-    E -->|no| E1
-    E -->|yes| F["Remember the currently<br/>connected Wi-Fi"]
+    D --> D1{"WIFI_DEV set?"}
+    D1 -->|yes| D2{"Wi-Fi interface and<br/>managed by NetworkManager?"}
+    D2 -->|no| E1
+    D2 -->|yes| F[/"Wi-Fi interface: WIFI_DEV<br/>(warning if no AP mode)"/]
+    D1 -->|no| E["Take the first Wi-Fi interface that is<br/>managed and lists '* AP' (iw phy … info)"]
+    E --> E0{"Found one?"}
+    E0 -->|no| E1
+    E0 -->|yes| F
     F --> G["Install cleanup for Ctrl+C / exit"]
-    G --> H["Write DNS setting:<br/>every name → 10.42.0.1,<br/>portal URL via DHCP option 114"]
+    G --> G1["Pause system dnsmasq service<br/>if it is running"]
+    G1 --> G2{"DNS port 53 free?"}
+    G2 -->|no| E3[/"Error: names the program on port 53"/] --> CL
+    G2 -->|yes| H["Write DNS setting:<br/>every name → 10.42.0.1,<br/>portal URL via DHCP option 114"]
     H --> I["Create and start access point:<br/>SSID Neongrid, WPA2, 2.4 GHz,<br/>10.42.0.1/24, DHCP"]
     I --> J["nftables: port 80 → 8765"]
     J --> K["Start game server as normal user<br/>--host 0.0.0.0 --portal http://10.42.0.1/"]
     K --> L{"Server running<br/>after 1 s?"}
     L -->|no| E2[/"Error: server did not start"/] --> CL
-    L -->|yes| M[/"Print box: Wi-Fi name, password,<br/>IP address 10.42.0.1, game URL<br/>(+ Wi-Fi QR code if qrencode exists)"/]
+    L -->|yes| M[/"Print box: Wi-Fi name, password,<br/>interface, IP 10.42.0.1, game URL<br/>(+ Wi-Fi QR code if qrencode exists)"/]
     M --> N["Wait until the server ends<br/>(Ctrl+C)"]
     N --> CL
 
@@ -411,8 +377,8 @@ flowchart TD
         CL["Stop game server"] --> CL1["Delete nftables table"]
         CL1 --> CL2["Switch off and delete access point"]
         CL2 --> CL3["Delete DNS setting file"]
-        CL3 --> CL4{"Was connected to a<br/>Wi-Fi before?"}
-        CL4 -->|yes| CL5["Reconnect to it"] --> CL6(["End"])
+        CL3 --> CL4{"dnsmasq service<br/>paused at start?"}
+        CL4 -->|yes| CL5["Start it again"] --> CL6(["End (no Wi-Fi reconnect)"])
         CL4 -->|no| CL6
     end
 ```

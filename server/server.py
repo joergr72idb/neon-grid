@@ -742,7 +742,7 @@ def make_app(db_path, static_dir=None, countdown=10, portal=None):
     app.router.add_get("/api/highscores", highscores)
     app.router.add_get("/ws", websocket)
     if static_dir:
-        # Without Apache (local play, meetup mode) this server also delivers the page.
+        # Without Apache (local play, game access point) this server also delivers the page.
         static_dir = Path(static_dir).resolve()
 
         async def index(_request):

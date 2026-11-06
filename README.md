@@ -66,8 +66,7 @@ Tip for testing: add `--countdown 3` for a shorter countdown.
 |---|---|---|---|
 | **Local** | you, in two browser windows | `server.py --static ../public` | [SETUP A](docs/SETUP.md#a-local-on-one-computer) |
 | **Home network** | everyone on your Wi-Fi/LAN | `server.py --static ../public --host 0.0.0.0` | [SETUP B](docs/SETUP.md#b-home-network-lan) |
-| **Meetup hotspot** | everyone near the notebook, with internet from a phone (USB tethering) | `scripts/lan-party.sh` | [SETUP C](docs/SETUP.md#c-meetup-mode-own-wi-fi-hotspot) |
-| **Game access point** | everyone near the computer, no internet needed, game opens by itself | `scripts/neongrid-ap.sh` | [SETUP C2](docs/SETUP.md#c2-game-access-point-without-internet-jump-page) |
+| **Game access point** | everyone near the computer, no internet needed, game opens by itself; Wi-Fi card found automatically | `scripts/neongrid-ap.sh` | [SETUP C](docs/SETUP.md#c-game-access-point-own-wi-fi-jump-page) |
 | **Public server** | everyone on the internet, Apache + HTTPS | systemd service | [INSTALL-DEBIAN, part 3](docs/INSTALL-DEBIAN.md#part-3--public-web-server-apache--https) |
 
 Setting up a new machine from scratch? Follow
@@ -78,7 +77,7 @@ installed Debian to a running game, step by step.
 
 | Document | Content |
 |---|---|
-| [docs/INSTALL-DEBIAN.md](docs/INSTALL-DEBIAN.md) | **Fresh Debian install:** packages, getting the code, meetup/access-point notebook, public Apache server with HTTPS, updates, backups, uninstall |
+| [docs/INSTALL-DEBIAN.md](docs/INSTALL-DEBIAN.md) | **Fresh Debian install:** packages, getting the code, game access point notebook, public Apache server with HTTPS, updates, backups, uninstall |
 | [docs/SETUP.md](docs/SETUP.md) | All operating modes in detail, with troubleshooting tables and a reference of every option |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the program is built: components, match sequence, HTTP API, WebSocket messages, database, security |
 | [docs/PAP.md](docs/PAP.md) | Programmablaufplan: DIN 66001 flowcharts of all important functions |
@@ -95,8 +94,7 @@ neon-grid/
 │   ├── server.py        game server: accounts, matchmaking, game logic (Python + aiohttp)
 │   └── requirements.txt
 ├── scripts/
-│   ├── lan-party.sh     meetup hotspot (internet via phone) + game server
-│   └── neongrid-ap.sh   offline game access point with captive-portal jump page
+│   └── neongrid-ap.sh   game access point (own Wi-Fi, captive-portal jump page)
 ├── deploy/
 │   ├── neongrid.service       systemd unit (sandboxed, own user)
 │   └── neongrid-apache.conf   Apache proxy snippet for /neongrid/
@@ -125,8 +123,7 @@ The tests use a temporary database and never touch your real scores.
   SQLite for accounts and matches.
 - **Client:** plain HTML5, CSS and JavaScript with `<canvas>`, no framework
   and no build step.
-- **Networking extras:** NetworkManager (`nmcli`) for hotspot and access
-  point, dnsmasq and nftables for the captive portal.
+- **Networking extras:** NetworkManager (`nmcli`) for the access point, dnsmasq and nftables for the captive portal.
 - **Tested on** Debian 13 (Python 3.13) and Ubuntu.
 
 ## Notes
