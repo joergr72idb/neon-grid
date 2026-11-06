@@ -1,165 +1,137 @@
 # NEON GRID
 
-Browser game for two players: light-cycle duels on a neon grid, steered with the
-arrow keys (or WASD) on a computer, or by swiping / an on-screen arrow pad on
-phones and tablets. Players create an account, every match is counted, and the
-start screen shows a highscore list.
+**A light-cycle duel for two players, right in the browser.**
 
-- **public/** – the web page (HTML5 canvas, served by Apache)
-- **server/** – Python game server (accounts, matchmaking, game logic, SQLite)
-- **deploy/** – Apache snippet and systemd service
-- **tests/smoke_test.py** – end-to-end test (two players, two matches);
-  **tests/portal_test.py** – captive-portal redirect test
-- **docs/** – documentation (see below)
+Two cycles race across a neon grid and leave a glowing light trail behind
+them. Whoever hits a wall or a trail first loses. No app or plug-in is
+needed: laptops play with the arrow keys or W A S D, phones and tablets by
+swiping or with an on-screen arrow pad. Every match counts for the shared
+highscore list.
+
+NEON GRID is made for places where people meet: a LAN party, a user group,
+a retro computer show, or just two browser windows at home. The notebook
+can even open its own Wi-Fi, so players only join it and the game opens by
+itself.
+
+## Features
+
+- **Two-player online duels** with matchmaking: the first player waits,
+  the second one starts the match. A countdown runs, then the cycles get
+  faster over time.
+- **Accounts and highscores** (wins, losses, draws) stored in SQLite.
+- **Fair by design:** the server is the referee. Browsers only send
+  steering commands, so nobody can cheat by changing the JavaScript, and
+  both players always see the same game.
+- **Keyboard and touch:** arrow keys/WASD, swipe, or the arrow pad (below
+  the arena in portrait, beside it in landscape).
+- **Four ways to run it**, from one computer up to a public web server
+  (see below).
+- **Offline game access point:** the computer becomes a Wi-Fi access point
+  without internet, and joining phones open the game by themselves, like a
+  hotel Wi-Fi login page.
+- **Privacy-friendly:** the font is served locally (no Google requests),
+  passwords are stored as salted scrypt hashes, and login and registration
+  are rate-limited.
+
+## How a match works
+
+1. Log in (or create an account) and press **Enter the grid**.
+2. As soon as a second player joins, a countdown runs from 10 to 0.
+3. Steer around the arena. Hitting a wall or any light trail loses,
+   a head-on crash is a draw, and leaving a running match counts as a loss.
+   The cycles speed up as the match goes on.
+
+## Quick start (one computer)
+
+Needs Linux with Python 3.9 or newer (`sudo apt install git python3 python3-venv`).
+
+```bash
+cd neon-grid
+python3 -m venv .venv                              # one time only
+.venv/bin/pip install -r server/requirements.txt   # one time only
+
+cd server
+../.venv/bin/python server.py --static ../public
+```
+
+Open **http://127.0.0.1:8765/** in two browser windows (for example a
+normal and a private window), create a different account in each, and
+press *Enter the grid* in both. **Ctrl+C** stops the server.
+
+Tip for testing: add `--countdown 3` for a shorter countdown.
+
+## Ways to run it
+
+| Mode | Who can play | Command | Guide |
+|---|---|---|---|
+| **Local** | you, in two browser windows | `server.py --static ../public` | [SETUP A](docs/SETUP.md#a-local-on-one-computer) |
+| **Home network** | everyone on your Wi-Fi/LAN | `server.py --static ../public --host 0.0.0.0` | [SETUP B](docs/SETUP.md#b-home-network-lan) |
+| **Meetup hotspot** | everyone near the notebook, with internet from a phone (USB tethering) | `scripts/lan-party.sh` | [SETUP C](docs/SETUP.md#c-meetup-mode-own-wi-fi-hotspot) |
+| **Game access point** | everyone near the computer, no internet needed, game opens by itself | `scripts/neongrid-ap.sh` | [SETUP C2](docs/SETUP.md#c2-game-access-point-without-internet-jump-page) |
+| **Public server** | everyone on the internet, Apache + HTTPS | systemd service | [INSTALL-DEBIAN, part 3](docs/INSTALL-DEBIAN.md#part-3--public-web-server-apache--https) |
+
+Setting up a new machine from scratch? Follow
+**[docs/INSTALL-DEBIAN.md](docs/INSTALL-DEBIAN.md)**: it goes from a freshly
+installed Debian to a running game, step by step.
 
 ## Documentation
 
 | Document | Content |
 |---|---|
-| [docs/SETUP.md](docs/SETUP.md) | Setup guide: local, home network, **meetup hotspot** (step by step, with troubleshooting), **game access point with jump page**, Apache server, reference of all options |
+| [docs/INSTALL-DEBIAN.md](docs/INSTALL-DEBIAN.md) | **Fresh Debian install:** packages, getting the code, meetup/access-point notebook, public Apache server with HTTPS, updates, backups, uninstall |
+| [docs/SETUP.md](docs/SETUP.md) | All operating modes in detail, with troubleshooting tables and a reference of every option |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the program is built: components, match sequence, HTTP API, WebSocket messages, database, security |
 | [docs/PAP.md](docs/PAP.md) | Programmablaufplan: DIN 66001 flowcharts of all important functions |
 
-The source code itself is commented for readers who are new to it. Start with the
+The source code is commented for readers who are new to it. Start with the
 docstring at the top of `server/server.py` and the header of `public/game.js`.
 
-## How a match works
+## Project layout
 
-1. The first player presses *Enter the grid* and waits.
-2. As soon as a second player joins, a countdown runs from 10 to 0.
-3. Whoever hits a wall or a light trail loses. Head-on crash = draw.
-   Leaving a running match counts as a loss. The cycles get faster over time.
-
-## Start the server locally (shell)
-
-### One-time setup
-
-Only needed the first time (or after deleting `.venv/`):
-
-```bash
-cd ~/ClaudeCode/neon-grid
-python3 -m venv .venv
-.venv/bin/pip install -r server/requirements.txt
+```
+neon-grid/
+├── public/              web page: index.html, style.css, game.js, fonts/ (Orbitron, OFL)
+├── server/
+│   ├── server.py        game server: accounts, matchmaking, game logic (Python + aiohttp)
+│   └── requirements.txt
+├── scripts/
+│   ├── lan-party.sh     meetup hotspot (internet via phone) + game server
+│   └── neongrid-ap.sh   offline game access point with captive-portal jump page
+├── deploy/
+│   ├── neongrid.service       systemd unit (sandboxed, own user)
+│   └── neongrid-apache.conf   Apache proxy snippet for /neongrid/
+├── tests/
+│   ├── smoke_test.py    two accounts, two full matches over WebSocket
+│   └── portal_test.py   captive-portal redirects (Android, Apple, Windows, Firefox, Linux)
+└── docs/                see "Documentation"
 ```
 
-### Start
+The database `server/neongrid.sqlite3` is created on the first start and is
+not part of git (`.gitignore`). Delete it to reset all accounts and scores.
+
+## Tests
 
 ```bash
-cd ~/ClaudeCode/neon-grid/server
-../.venv/bin/python server.py --static ../public
+.venv/bin/python tests/smoke_test.py    # last line: "OK – …"
+.venv/bin/python tests/portal_test.py   # last line: "OK – captive portal redirects 6 connectivity checks"
 ```
 
-`--static ../public` makes the game server deliver the web page itself, so you don't
-need Apache locally. When it is running you'll see `Running on http://127.0.0.1:8765`.
-The server stays in the foreground and logs to this terminal.
+The tests use a temporary database and never touch your real scores.
 
-Then open **http://127.0.0.1:8765/** in two browser windows, with a different
-account in each (e.g. one normal and one private window), and press *Enter the grid*
-in both.
+## Technology
 
-### Stop
-
-Press **Ctrl+C** in the terminal where the server runs.
-
-### Useful options
-
-| Option | Default | Purpose |
-|---|---|---|
-| `--port 9000` | `8765` | use a different port |
-| `--host 0.0.0.0` | `127.0.0.1` | also reachable from other machines in the LAN (`http://<your-ip>:8765/`) |
-| `--countdown 3` | `10` | shorter countdown before a match (handy for testing) |
-| `--db test.sqlite3` | `neongrid.sqlite3` | use a separate database for accounts/scores |
-
-Example for quick testing: `../.venv/bin/python server.py --static ../public --countdown 3`
-
-### Run in the background
-
-```bash
-cd ~/ClaudeCode/neon-grid/server
-nohup ../.venv/bin/python server.py --static ../public > neongrid.log 2>&1 &
-tail -f neongrid.log            # watch the log (Ctrl+C ends only tail)
-pkill -f "server.py --static"   # stop the server
-```
-
-### Troubleshooting
-
-- **`address already in use`**: a server is already running. Stop it with
-  `pkill -f server.py` or pick another port with `--port`.
-- **`ModuleNotFoundError: aiohttp`**: you used the system Python. Use
-  `../.venv/bin/python` (or repeat the one-time setup).
-- **Reset accounts and highscores**: stop the server, then
-  `rm server/neongrid.sqlite3*`.
-
-### Test
-
-```bash
-cd ~/ClaudeCode/neon-grid
-.venv/bin/python tests/smoke_test.py
-.venv/bin/python tests/portal_test.py
-```
-
-## Meetup mode: own Wi-Fi hotspot
-
-Phone via USB with *USB tethering* on (full step-by-step guide with
-requirements and troubleshooting: [docs/SETUP.md, section C](docs/SETUP.md#c-meetup-mode-own-wi-fi-hotspot)), then:
-
-```bash
-scripts/lan-party.sh                               # Wi-Fi NEON-GRID / lightcycle
-SSID=LUG-GRID PASSWORD=secret123 scripts/lan-party.sh
-```
-
-The notebook becomes an access point with internet from the phone, and the game runs
-at the address the script prints (usually http://10.42.0.1:8765/). Ctrl+C stops
-everything and reconnects your normal Wi-Fi. Scores are kept in `server/neongrid.sqlite3`.
-
-## Game access point without internet (jump page)
-
-```bash
-scripts/neongrid-ap.sh          # Wi-Fi Neongrid / 1234neongrid, asks for the sudo password
-```
-
-This computer becomes a Wi-Fi access point that only serves the game. No internet
-is needed. Devices that join open the game by themselves (captive portal), and the
-script prints the IP address, **10.42.0.1**. The game is at http://10.42.0.1/. This
-computer loses its normal Wi-Fi while the access point runs. Ctrl+C undoes
-everything. Details: [docs/SETUP.md, section C2](docs/SETUP.md#c2-game-access-point-without-internet-jump-page).
-
-## Install on the Apache server (Debian/Ubuntu)
-
-```bash
-# 1. user, folders, code
-sudo useradd --system --home /var/lib/neongrid --shell /usr/sbin/nologin neongrid
-sudo mkdir -p /opt/neongrid /var/lib/neongrid /var/www/neongrid
-sudo cp -r server /opt/neongrid/
-sudo cp -r public/. /var/www/neongrid/
-sudo chown neongrid:neongrid /var/lib/neongrid
-
-# 2. Python environment
-sudo apt install python3-venv
-sudo python3 -m venv /opt/neongrid/.venv
-sudo /opt/neongrid/.venv/bin/pip install -r /opt/neongrid/server/requirements.txt
-
-# 3. game server as a service
-sudo cp deploy/neongrid.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now neongrid
-sudo systemctl status neongrid
-
-# 4. Apache: paste deploy/neongrid-apache.conf into your <VirtualHost>, then
-sudo a2enmod proxy proxy_http proxy_wstunnel
-sudo apachectl configtest && sudo systemctl reload apache2
-```
-
-The game is then at `https://your-domain/neongrid/`. Use HTTPS, because passwords
-are sent at login.
-
-Logs: `journalctl -u neongrid -f`. Database: `/var/lib/neongrid/neongrid.sqlite3`
-(back this file up to keep accounts and scores).
+- **Server:** Python 3 with [aiohttp](https://docs.aiohttp.org/): one process,
+  one asyncio event loop, HTTP JSON API plus a WebSocket for the live game,
+  SQLite for accounts and matches.
+- **Client:** plain HTML5, CSS and JavaScript with `<canvas>`, no framework
+  and no build step.
+- **Networking extras:** NetworkManager (`nmcli`) for hotspot and access
+  point, dnsmasq and nftables for the captive portal.
+- **Tested on** Debian 13 (Python 3.13) and Ubuntu.
 
 ## Notes
 
-- Passwords are stored as salted scrypt hashes; login and registration are rate-limited.
-- The font (Orbitron, SIL Open Font License) is served from your own server, so the
-  page makes no requests to Google, which keeps it GDPR-friendly.
-- The design is an original 80s-neon style. It deliberately uses no name, logo,
-  font or imagery from the TRON films.
+- The design is an original 80s neon style. It deliberately uses no name,
+  logo, font or imagery from the TRON films.
+- The font Orbitron is licensed under the SIL Open Font License
+  (`public/fonts/OFL.txt`).

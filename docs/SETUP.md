@@ -11,7 +11,9 @@ Pick the scenario that fits you:
 | **C2. Game access point** – own Wi-Fi *Neongrid*, no internet, game opens by itself | everyone near the computer | [C2](#c2-game-access-point-without-internet-jump-page) |
 | **D. Internet** – Apache web server with HTTPS | everyone on the internet | [D](#d-public-server-with-apache) |
 
-Other documents: [ARCHITECTURE.md](ARCHITECTURE.md) explains how the program is
+Setting up a freshly installed Debian machine? Start with
+[INSTALL-DEBIAN.md](INSTALL-DEBIAN.md). Other documents:
+[ARCHITECTURE.md](ARCHITECTURE.md) explains how the program is
 built, and [PAP.md](PAP.md) has the program flowcharts.
 
 ---
@@ -31,7 +33,7 @@ built, and [PAP.md](PAP.md) has the program flowcharts.
 **Install the Python environment** (only once, or again after deleting `.venv/`):
 
 ```bash
-cd ~/ClaudeCode/neon-grid
+cd ~/neon-grid
 python3 -m venv .venv                              # private Python environment in .venv/
 .venv/bin/pip install -r server/requirements.txt   # installs aiohttp (web server library)
 ```
@@ -64,7 +66,7 @@ against a temporary database. It doesn't touch your real scores.
 ## A. Local on one computer
 
 ```bash
-cd ~/ClaudeCode/neon-grid/server
+cd ~/neon-grid/server
 ../.venv/bin/python server.py --static ../public
 ```
 
@@ -82,7 +84,7 @@ Stop the server with **Ctrl+C**.
 ### Running it in the background
 
 ```bash
-cd ~/ClaudeCode/neon-grid/server
+cd ~/neon-grid/server
 nohup ../.venv/bin/python server.py --static ../public > neongrid.log 2>&1 &
 tail -f neongrid.log            # watch the log (Ctrl+C only ends tail)
 pkill -f "server.py --static"   # stop the server
@@ -95,7 +97,7 @@ pkill -f "server.py --static"   # stop the server
 Same as A, but the server listens on all network interfaces:
 
 ```bash
-cd ~/ClaudeCode/neon-grid/server
+cd ~/neon-grid/server
 ../.venv/bin/python server.py --static ../public --host 0.0.0.0
 ```
 
@@ -169,7 +171,7 @@ The notebook now shows a new **wired connection**. The script waits for it.
 ### C.4 Start
 
 ```bash
-cd ~/ClaudeCode/neon-grid
+cd ~/neon-grid
 scripts/lan-party.sh
 ```
 
@@ -272,7 +274,7 @@ flowchart LR
 ### C2.1 Start
 
 ```bash
-cd ~/ClaudeCode/neon-grid
+cd ~/neon-grid
 scripts/neongrid-ap.sh
 ```
 
@@ -363,6 +365,10 @@ step 5 for Android, Apple, Windows, Firefox and Linux connectivity checks.
 
 ## D. Public server with Apache
 
+> **New machine?** [INSTALL-DEBIAN.md, part 3](INSTALL-DEBIAN.md#part-3--public-web-server-apache--https)
+> walks through the whole setup on a fresh Debian, including firewall, HTTPS
+> certificate and daily backups. This section is the short version.
+
 In this setup Apache delivers the web page and passes the API and game connection
 on to the Python server, which runs as a systemd service under its own user.
 
@@ -378,7 +384,7 @@ flowchart LR
 ### D.1 Install (Debian/Ubuntu)
 
 ```bash
-cd ~/ClaudeCode/neon-grid
+cd ~/neon-grid
 
 # 1. system user without login, folders, code
 sudo useradd --system --home /var/lib/neongrid --shell /usr/sbin/nologin neongrid
@@ -411,7 +417,7 @@ certificate yet, run `sudo apt install certbot python3-certbot-apache && sudo ce
 ### D.2 Update to a new version
 
 ```bash
-cd ~/ClaudeCode/neon-grid
+cd ~/neon-grid
 sudo cp server/server.py server/requirements.txt /opt/neongrid/server/
 sudo /opt/neongrid/.venv/bin/pip install -r /opt/neongrid/server/requirements.txt
 sudo cp -r public/. /var/www/neongrid/
