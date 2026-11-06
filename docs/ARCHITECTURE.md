@@ -55,6 +55,7 @@ use is password hashing (`asyncio.to_thread`), which is slow on purpose.
 | `deploy/neongrid-apache.conf` | 18 | Apache reverse proxy snippet |
 | `tests/smoke_test.py` | 96 | end-to-end test |
 | `tests/portal_test.py` | 65 | captive-portal redirect test |
+| `tools/screenshots.py` | 340 | README screenshots: own server + temporary DB, bots, headless Chrome over CDP |
 
 ## 3. Life of a match
 

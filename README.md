@@ -111,6 +111,8 @@ neon-grid/
 ├── tests/
 │   ├── smoke_test.py    two accounts, two full matches over WebSocket
 │   └── portal_test.py   captive-portal redirects (Android, Apple, Windows, Firefox, Linux)
+├── tools/
+│   └── screenshots.py   makes the README screenshots (headless Chrome + bots)
 └── docs/                see "Documentation"
 ```
 
@@ -125,6 +127,23 @@ not part of git (`.gitignore`). Delete it to reset all accounts and scores.
 ```
 
 The tests use a temporary database and never touch your real scores.
+
+## Screenshots
+
+The two pictures at the top are made by a script, so they can be renewed
+after design changes:
+
+```bash
+.venv/bin/python tools/screenshots.py      # writes docs/images/start.png and game.png
+```
+
+It starts its own game server with a temporary database and invented
+accounts, fills the highscores with bot matches, and opens the game in
+headless Chrome or Chromium as "Nova" against the bot "Blaze". The script
+steers both cycles and takes the match picture after 360 game steps
+(`--ticks`). If a match ends earlier it tries again. `--help` lists all
+options. Because the bots react to network timing, every run looks a little
+different.
 
 ## Technology
 
