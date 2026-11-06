@@ -321,14 +321,21 @@ function stopGame() {
 function layout() {
   if (!game) return;
   const arena = $('#arena');
-  const availW = Math.max(200, document.documentElement.clientWidth - 32);
+  let availW = Math.max(200, document.documentElement.clientWidth - 32);
+  // Touch device held sideways: the arrow pad sits beside the arena (see style.css).
+  const padBeside = matchMedia('(pointer: coarse) and (orientation: landscape)').matches;
+  if (padBeside) availW -= $('#dpad').offsetWidth + 20;   // pad width + column gap
   // Height left for the arena = window minus everything above it (header,
   // HUD) and below it: the visible hint text and the touch arrow pad
   // (offsetHeight is 0 for hidden ones), their 14 px margins, the arena
   // border and the page's bottom padding.
-  const above = arena.getBoundingClientRect().top + window.scrollY;
+  // "Above" is measured at the HUD (+ its 10 px margin), not at the arena:
+  // next to the tall arrow pad in landscape, the not-yet-sized arena is
+  // centered vertically and its top would be too low.
+  const above = $('.hud').getBoundingClientRect().bottom + window.scrollY + 10;
   let below = 2 + 24;
-  for (const el of [$('#dpad'), ...document.querySelectorAll('.hint')]) {
+  for (const el of [padBeside ? null : $('#dpad'), ...document.querySelectorAll('.hint')]) {
+    if (!el) continue;
     if (el.offsetHeight) below += el.offsetHeight + 14;
   }
   const availH = Math.max(160, window.innerHeight - above - below);
@@ -581,22 +588,23 @@ document.addEventListener('keydown', (ev) => {
 });
 
 /*
- * Swipe steering on touch screens, anywhere on the game screen.
+ * Swipe steering on touch screens, anywhere on the page during a match.
  * A finger that moves more than SWIPE_PX in one direction counts as a turn
  * in that direction. The start point then moves to the current finger
  * position, so one continuous L-shaped stroke can give two turns, e.g. up
  * then left. Buttons (arrow pad, "Play again") are left to their own handlers.
- * CSS sets touch-action: none on the game screen, so the browser doesn't
- * scroll or zoom while the finger moves.
+ * CSS sets touch-action: none on the page during a match, so the browser
+ * doesn't scroll or zoom while the finger moves. The touchmove handler below
+ * does the same for browsers that don't fully honor that CSS rule.
  */
 const SWIPE_PX = 24;
 let swipe = null;   // {id, x, y} of the finger being tracked, or null
 
-$('#screen-game').addEventListener('pointerdown', (ev) => {
-  if (ev.pointerType === 'mouse' || ev.target.closest('button')) return;
+document.addEventListener('pointerdown', (ev) => {
+  if (ev.pointerType === 'mouse' || $('#screen-game').hidden || ev.target.closest('button')) return;
   swipe = { id: ev.pointerId, x: ev.clientX, y: ev.clientY };
 });
-$('#screen-game').addEventListener('pointermove', (ev) => {
+document.addEventListener('pointermove', (ev) => {
   if (!swipe || ev.pointerId !== swipe.id) return;
   const dx = ev.clientX - swipe.x;
   const dy = ev.clientY - swipe.y;
@@ -608,10 +616,14 @@ $('#screen-game').addEventListener('pointermove', (ev) => {
   swipe.y = ev.clientY;
 });
 for (const type of ['pointerup', 'pointercancel']) {
-  $('#screen-game').addEventListener(type, (ev) => {
+  document.addEventListener(type, (ev) => {
     if (swipe && ev.pointerId === swipe.id) swipe = null;
   });
 }
+// passive: false is required, otherwise the browser ignores preventDefault().
+document.addEventListener('touchmove', (ev) => {
+  if (!$('#screen-game').hidden) ev.preventDefault();
+}, { passive: false });
 
 // Arrow pad: react on pointerdown (finger touches) instead of click (finger
 // lifts), which saves ~100 ms, an eternity at 20 ticks per second.

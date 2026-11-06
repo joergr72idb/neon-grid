@@ -314,25 +314,44 @@ input:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 12px rgb
 /* ---------- touch controls ----------
    (pointer: coarse) = the main input is a finger, i.e. phone or tablet.
    On those devices the touch hint replaces the keyboard hint, and the
-   arrow pad appears below the arena when the device is held upright. */
+   arrow pad is shown: below the arena when the device is held upright,
+   to the right of it when held sideways. */
 .hint-touch, .dpad { display: none; }
 @media (pointer: coarse) {
   .hint-keys { display: none; }
   .hint-touch { display: block; }
   /* No scrolling, pinch-zoom or double-tap zoom while playing: every
-     finger movement on the game screen is a steering swipe. */
-  .game { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-}
-@media (pointer: coarse) and (orientation: portrait) {
+     finger movement on the page is a steering swipe. */
+  body.in-game { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   .dpad {
     display: grid;
-    grid-template: "  .   up    .  " 64px
-                   "left  .   right" 64px
-                   "  .  down   .  " 64px / 64px 64px 64px;
+    grid-template: "  .   up    .  " var(--pad)
+                   "left  .   right" var(--pad)
+                   "  .  down   .  " var(--pad) / var(--pad) var(--pad) var(--pad);
     gap: 6px;
     justify-content: center;
     margin-top: 14px;
+    --pad: 64px;   /* size of one arrow button */
   }
+}
+/* Held sideways: arena on the left, arrow pad on the right (in reach of the
+   right thumb), HUD above and hint below both. game.js's layout() knows
+   about this (same media query) and leaves room for the pad beside the arena. */
+@media (pointer: coarse) and (orientation: landscape) {
+  .game {
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-areas: "hud  hud"
+                         "arena pad"
+                         "hint hint";
+    justify-content: center;
+    align-items: center;
+    column-gap: 20px;
+  }
+  .hud { grid-area: hud; }
+  .arena { grid-area: arena; }
+  .dpad { grid-area: pad; margin-top: 0; --pad: 56px; }
+  .hint { grid-area: hint; }
 }
 /* Phone held sideways: very little height, so hide the header during a match. */
 @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {

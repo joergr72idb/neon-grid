@@ -23,9 +23,9 @@ built, and [PAP.md](PAP.md) has the program flowcharts.
 - Python 3.9 or newer with the `venv` module (`sudo apt install python3 python3-venv`)
 - A modern browser (Firefox, Chrome, Edge, Safari)
 - **Controls:** on a computer, the arrow keys or W A S D. On phones and
-  tablets, swipe in the direction you want to turn. Held upright, the screen
-  also shows an arrow pad below the arena. Held sideways, the arena is bigger,
-  but there is only swiping.
+  tablets, swipe in the direction you want to turn, or tap the on-screen arrow
+  pad. The pad sits below the arena when the phone is held upright and to the
+  right of it when held sideways. Turning the phone during a match is fine.
 
 **Install the Python environment** (only once, or again after deleting `.venv/`):
 
