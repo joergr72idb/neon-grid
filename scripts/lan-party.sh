@@ -73,6 +73,7 @@ echo "Internet via:  $UPLINK"
 # Runs on Ctrl+C, on kill and on any exit (also after errors): stop the
 # server, delete the hotspot connection, and reconnect the previous Wi-Fi.
 SERVER_PID=""
+STOPPED_DNSMASQ=0
 cleanup() {
     trap - INT TERM EXIT   # don't run twice
     set +e                 # carry on with the remaining steps even if one fails
@@ -81,12 +82,33 @@ cleanup() {
     [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null && wait "$SERVER_PID" 2>/dev/null
     nmcli connection down "$CON" >/dev/null 2>&1 || true
     nmcli connection delete "$CON" >/dev/null 2>&1 || true
+    if [ "$STOPPED_DNSMASQ" = 1 ]; then
+        echo "Restarting the system dnsmasq service (may ask for your sudo password)…"
+        sudo systemctl start dnsmasq || echo "Could not restart it – run: sudo systemctl start dnsmasq"
+    fi
     if [ -n "$PREV_WIFI" ]; then
         echo "Reconnecting to '$PREV_WIFI'…"
         nmcli connection up "$PREV_WIFI" >/dev/null 2>&1 || echo "Could not reconnect – do it in the network menu."
     fi
 }
 trap cleanup INT TERM EXIT
+
+# Free DNS port 53: if the full "dnsmasq" package is installed, its system
+# service listens on port 53 of ALL interfaces. NetworkManager's own dnsmasq
+# for the hotspot then fails with "Address already in use" and the hotspot
+# won't start. Pause the service while the hotspot runs; cleanup() starts it
+# again. Only this step needs sudo, and only when the service is running.
+if command -v systemctl >/dev/null && systemctl is-active --quiet dnsmasq 2>/dev/null; then
+    echo "Pausing the system dnsmasq service (it blocks DNS port 53; asks for your sudo password)…"
+    sudo systemctl stop dnsmasq
+    STOPPED_DNSMASQ=1
+fi
+if ss -lun "sport = :53" | grep -q ':53 '; then
+    echo "Something else is using DNS port 53:" >&2
+    ss -lun "sport = :53" >&2
+    echo "Find it with: sudo ss -lunp 'sport = :53' – stop it, then run this script again." >&2
+    exit 1
+fi
 
 # 2. Hotspot (2.4 GHz for best compatibility). NetworkManager handles DHCP and
 #    shares the tethered internet connection automatically.

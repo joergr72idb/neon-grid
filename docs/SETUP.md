@@ -232,6 +232,7 @@ Afterwards you can switch off USB tethering on the phone.
 | `No Wi-Fi device found.` | Wi-Fi is switched off (`nmcli radio wifi on`) or there is no Wi-Fi card. |
 | `No USB tethering found after 2 minutes.` | Tethering is not switched on, or the cable is charge-only. Try another cable. `nmcli device` should list an `ethernet … connected` device. |
 | Error while creating the hotspot | The card does not support AP mode (see C.1), or `dnsmasq-base` is missing. |
+| `Address already in use` / port 53 | The full `dnsmasq` package runs its own service on port 53, which blocks the hotspot's DNS. The script pauses `dnsmasq.service` while it runs (asks for your sudo password) and starts it again on exit. |
 | `Internet: NO – check the phone's tethering` | The phone has no mobile data, or tethering stopped. **The game still works**, just without internet for the players. |
 | Players can't see the Wi-Fi | Some 5-GHz-only devices exist but are rare. Move closer, since the notebook antenna is small. |
 | Players are connected but the page does not load | Check the address (http, not https, and include `:8765`). If a firewall is active: `sudo ufw allow in on <wifi-device>` (the device name is shown by `nmcli device`, e.g. `wlp2s0`). |
@@ -352,6 +353,7 @@ step 5 for Android, Apple, Windows, Firefox and Linux connectivity checks.
 | `Port 8765 is already in use` | Another game server is running: `pkill -f server.py`, then start again. |
 | `No Wi-Fi device found.` | Wi-Fi is hard-blocked (airplane mode switch / key) or there's no Wi-Fi card. `rfkill list` shows blocks. |
 | Error at "Starting access point" | The card doesn't support AP mode (check with `/sbin/iw list`, it needs `* AP`), or `dnsmasq-base` is missing (`sudo apt install dnsmasq-base`). |
+| `Address already in use` / port 53 | The full `dnsmasq` package runs its own service on port 53, which blocks the access point's DNS. The script now pauses `dnsmasq.service` while it runs and starts it again on exit. If another program holds port 53, the script names it (`sudo ss -lunp 'sport = :53'`). |
 | Players see the Wi-Fi but can't connect | Wrong password (case-sensitive), or a very old device without WPA2 support. |
 | Players get no IP address | A firewall blocks DHCP/DNS. If `ufw` is active: `sudo ufw allow in on <wifi-device>` (device name from `nmcli device`). |
 | No jump page appears, but `10.42.0.1` works in the browser | Some devices only check after a while or remember the network as "no internet". Forget the Wi-Fi on the device and join again, or open `10.42.0.1` by hand. |

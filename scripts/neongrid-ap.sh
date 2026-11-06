@@ -31,6 +31,9 @@
 
 # Stop on errors (-e), on unset variables (-u) and on failures inside pipes.
 set -euo pipefail
+# Admin tools like nft live in /usr/sbin. After a plain `su` (without "-")
+# that folder is not in PATH on Debian, so add it to be safe.
+export PATH="$PATH:/usr/local/sbin:/usr/sbin:/sbin"
 
 SSID="${SSID:-Neongrid}"
 PASSWORD="${PASSWORD:-1234neongrid}"
@@ -51,9 +54,11 @@ if [ "$EUID" -ne 0 ]; then
 fi
 # The game server itself runs as the normal user who called sudo, so the
 # database file keeps belonging to them (and Python doesn't run as root).
+# If started as root with `su` (no SUDO_USER), use the owner of the project folder.
+OWNER="${SUDO_USER:-$(stat -c %U "$DIR")}"
 RUN_AS=()
-if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
-    RUN_AS=(sudo -u "$SUDO_USER")
+if [ "$OWNER" != "root" ]; then
+    RUN_AS=(runuser -u "$OWNER" --)
 fi
 
 # --- Checks (nothing is changed if one fails) -----------------------------------
@@ -94,6 +99,7 @@ PREV_WIFI="$(nmcli -g GENERAL.CONNECTION device show "$WIFI_DEV" 2>/dev/null || 
 # reconnect the previous Wi-Fi. Every step is safe to run even if the
 # matching setup step never happened.
 SERVER_PID=""
+STOPPED_DNSMASQ=0
 cleanup() {
     trap - INT TERM EXIT   # don't run twice
     set +e                 # carry on with the remaining steps even if one fails
@@ -104,12 +110,33 @@ cleanup() {
     nmcli connection down "$CON" >/dev/null 2>&1
     nmcli connection delete "$CON" >/dev/null 2>&1
     rm -f "$PORTAL_CONF"
+    if [ "$STOPPED_DNSMASQ" = 1 ]; then
+        echo "Restarting the system dnsmasq service…"
+        systemctl start dnsmasq
+    fi
     if [ -n "$PREV_WIFI" ]; then
         echo "Reconnecting to '$PREV_WIFI'…"
         nmcli connection up "$PREV_WIFI" >/dev/null 2>&1 || echo "Could not reconnect – do it in the network menu."
     fi
 }
 trap cleanup INT TERM EXIT
+
+# --- 0. Free DNS port 53 ----------------------------------------------------------
+# If the full "dnsmasq" package is installed, its system service listens on
+# port 53 of ALL interfaces. NetworkManager's own dnsmasq for the access point
+# then fails with "Address already in use" and the access point won't start.
+# Pause the service while the access point runs; cleanup() starts it again.
+if command -v systemctl >/dev/null && systemctl is-active --quiet dnsmasq 2>/dev/null; then
+    echo "Pausing the system dnsmasq service (it blocks DNS port 53)…"
+    systemctl stop dnsmasq
+    STOPPED_DNSMASQ=1
+fi
+if ss -lun "sport = :53" | grep -q ':53 '; then
+    echo "Something else is using DNS port 53:" >&2
+    ss -lunp "sport = :53" >&2
+    echo "Stop that program, then run this script again." >&2
+    exit 1
+fi
 
 # --- 1. DNS: every name points to this computer ---------------------------------
 # NetworkManager's dnsmasq for access points reads extra settings from
