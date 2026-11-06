@@ -403,3 +403,14 @@ kbd {
 body.in-game .top { padding-top: 12px; }
 body.in-game .logo { font-size: 1.5rem; }
 body.in-game .tagline { display: none; }
+
+/* ---------- footer (AI notice) ----------
+   Small and quiet below the start screens; hidden during a match so the
+   arena keeps all the room, especially on phones. */
+.site-foot {
+  margin: 32px auto 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+body.in-game .site-foot { display: none; }

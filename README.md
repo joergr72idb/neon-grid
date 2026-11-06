@@ -138,4 +138,5 @@ The tests use a temporary database and never touch your real scores.
 
 ## AI notice
 
-This project was developed with AI assistance (Claude).
+This project was developed with AI assistance (Claude). The game page
+shows a corresponding notice in its footer.
