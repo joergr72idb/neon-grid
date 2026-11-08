@@ -18,9 +18,10 @@ for. Day-to-day use of every mode is described in [SETUP.md](SETUP.md).
 > step by step in a clean `debian:13` container (Debian 13.7, Python 3.13.5):
 > both tests pass, Apache delivers the page, the API and the WebSocket
 > through the proxy, and the database is created in `/var/lib/neongrid`.
-> Part 2 needs real Wi-Fi hardware and follows `scripts/neongrid-ap.sh`; its
-> automatic Wi-Fi interface selection was tested with simulated `nmcli`/`iw`
-> output only, not yet on real cards.
+> Part 2 needs real Wi-Fi hardware and follows `scripts/neongrid-ap.sh`.
+> The script has run on a real notebook: it picked the Wi-Fi interface
+> automatically, and an Android phone joined the access point and played
+> full matches at `10.42.0.1` (see the phone screenshots in the README).
 
 ---
 
