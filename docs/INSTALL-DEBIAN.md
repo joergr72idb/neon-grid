@@ -545,7 +545,6 @@ sudo userdel neongrid
 | Problem | Solution |
 |---|---|
 | `… is not in the sudoers file` | Step 1.1, then log out and in again. |
-| `gh: command not found` / `Unable to locate package gh` | `sudo apt update` first. Or copy the folder instead (step 1.3). |
 | `ModuleNotFoundError: aiohttp` | You used the system Python. Use `.venv/bin/python`, or repeat step 1.4. |
 | `address already in use` | A game server is already running: `pkill -f server.py` (notebook) or check `systemctl status neongrid` (server). |
 | `systemctl status neongrid` shows `failed` | `journalctl -u neongrid -n 50 --no-pager` shows why. Usually `/opt/neongrid/.venv` is missing (step 3.4) or `/var/lib/neongrid` doesn't belong to `neongrid` (step 3.3). |
