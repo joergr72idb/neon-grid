@@ -712,6 +712,10 @@ def captive_portal_middleware(portal_url):
     @web.middleware
     async def middleware(request, handler):
         if request.url.host not in allowed:
+            # Logged so a test on the access point shows which devices reached
+            # the portal with which connectivity check.
+            log.info("portal: %s asked for http://%s%s -> redirect to the game",
+                     request.remote, request.url.host, request.path)
             # no-store: devices must not cache the redirect and repeat it after
             # the access point is gone.
             raise web.HTTPFound(portal_url, headers={"Cache-Control": "no-store"})

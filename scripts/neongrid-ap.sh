@@ -20,7 +20,7 @@
 #   1. NetworkManager switches the Wi-Fi card to access-point mode and runs a
 #      small DHCP/DNS server (dnsmasq) that hands out addresses 10.42.0.x.
 #   2. An extra dnsmasq setting answers EVERY name with this computer's
-#      address, and tells devices the portal address (DHCP option 114).
+#      address (and logs the lookups, see SETUP.md C.5 for checking them).
 #   3. A firewall rule (nftables) forwards port 80 to the game server's port,
 #      so the game is at plain http://10.42.0.1/.
 #   4. The game server runs with --portal: the connectivity checks of phones
@@ -201,8 +201,11 @@ cat > "$PORTAL_CONF" <<EOF
 # Written by NEON GRID scripts/neongrid-ap.sh – removed again when it stops.
 # Answer every DNS name with the game computer's address:
 address=/#/$IP
-# RFC 8910: tell joining devices directly where the portal ("jump page") is.
-dhcp-option=114,"http://$IP/"
+# Log every lookup (journalctl), so a test shows whether phones use this DNS.
+log-queries
+# No DHCP option 114 (RFC 8910) on purpose: it must point to an HTTPS JSON API
+# with a valid certificate, not to an HTML page. Phones use their normal
+# connectivity check instead, which the game server redirects.
 EOF
 
 # --- 2. Access point ---------------------------------------------------------------

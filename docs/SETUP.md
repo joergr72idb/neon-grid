@@ -234,7 +234,7 @@ Notes for players:
 | Step | What happens |
 |---|---|
 | 1 | NetworkManager switches the Wi-Fi card to access-point mode (2.4 GHz, WPA2) with the fixed address 10.42.0.1. Its built-in dnsmasq hands out addresses 10.42.0.x to the players (DHCP). |
-| 2 | The extra file `/etc/NetworkManager/dnsmasq-shared.d/neongrid-portal.conf` makes dnsmasq answer **every** DNS name with 10.42.0.1. It also announces the portal address `http://10.42.0.1/` (DHCP option 114, RFC 8910). |
+| 2 | The extra file `/etc/NetworkManager/dnsmasq-shared.d/neongrid-portal.conf` makes dnsmasq answer **every** DNS name with 10.42.0.1 and log each lookup. |
 | 3 | An nftables table `neongrid_portal` forwards port 80 (normal web traffic) to the game server on port 8765. |
 | 4 | Right after joining, every device tests for internet by loading a known page, e.g. `http://connectivitycheck.gstatic.com/generate_204` (Android) or `http://captive.apple.com/hotspot-detect.html` (Apple). Because of steps 2 and 3, the test reaches the game server. |
 | 5 | The game server runs with `--portal http://10.42.0.1/`. It answers every request for a foreign host name with a redirect to the game. The device takes that as a login page and shows it: the game. |
@@ -255,7 +255,7 @@ step 5 for Android, Apple, Windows, Firefox and Linux connectivity checks.
 | `Address already in use` / port 53 | The full `dnsmasq` package runs its own service on port 53, which blocks the access point's DNS. The script now pauses `dnsmasq.service` while it runs and starts it again on exit. If another program holds port 53, the script names it (`sudo ss -lunp 'sport = :53'`). |
 | Players see the Wi-Fi but can't connect | Wrong password (case-sensitive), or a very old device without WPA2 support. |
 | Players get no IP address | A firewall blocks DHCP/DNS. If `ufw` is active: `sudo ufw allow in on <wifi-device>` (device name from `nmcli device`). |
-| No jump page appears, but `10.42.0.1` works in the browser | Some devices only check after a while or remember the network as "no internet". Forget the Wi-Fi on the device and join again, or open `10.42.0.1` by hand. |
+| No jump page appears, but `10.42.0.1` works in the browser | Some devices only check after a while or remember the network as "no internet". Forget the Wi-Fi on the device and join again, or open `10.42.0.1` by hand. On Android, set *Settings → Private DNS* to *Automatic* or *Off*: a fixed provider (e.g. dns.google) bypasses the game's DNS. To see where it stops, watch both logs while the phone joins: `sudo journalctl -f \| grep dnsmasq` should show a query for `connectivitycheck.gstatic.com`, and the script's terminal a line `portal: 10.42.0.x asked for http://connectivitycheck.gstatic.com/generate_204`. No query = the phone doesn't use our DNS; query but no portal line = port 80 doesn't reach the server. |
 | The script was killed hard (e.g. power loss) | Clean up by hand: `sudo nft delete table ip neongrid_portal; sudo rm -f /etc/NetworkManager/dnsmasq-shared.d/neongrid-portal.conf; nmcli connection delete neongrid-ap`. Starting the script again also cleans up leftovers. |
 
 ---

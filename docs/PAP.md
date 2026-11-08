@@ -363,7 +363,7 @@ flowchart TD
     G --> G1["Pause system dnsmasq service<br/>if it is running"]
     G1 --> G2{"DNS port 53 free?"}
     G2 -->|no| E3[/"Error: names the program on port 53"/] --> CL
-    G2 -->|yes| H["Write DNS setting:<br/>every name → 10.42.0.1,<br/>portal URL via DHCP option 114"]
+    G2 -->|yes| H["Write DNS setting:<br/>every name → 10.42.0.1,<br/>log lookups"]
     H --> I["Create and start access point:<br/>SSID Neongrid, WPA2, 2.4 GHz,<br/>10.42.0.1/24, DHCP"]
     I --> J["nftables: port 80 → 8765"]
     J --> K["Start game server as normal user<br/>--host 0.0.0.0 --portal http://10.42.0.1/"]
