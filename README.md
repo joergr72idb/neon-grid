@@ -185,6 +185,11 @@ different.
 - The font Orbitron is licensed under the SIL Open Font License
   (`public/fonts/OFL.txt`).
 
+## License
+
+NEON GRID is released under the [MIT License](LICENSE). The bundled
+Orbitron font keeps its own SIL Open Font License.
+
 ## AI notice
 
 This project was developed with AI assistance (Claude). The game page

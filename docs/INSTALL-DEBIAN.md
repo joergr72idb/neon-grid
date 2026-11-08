@@ -85,18 +85,12 @@ Debian 13 ships Python 3.13; NEON GRID needs 3.9 or newer.
 
 ### 1.3 Get the code
 
-The repository is **private** on GitHub, so you have to log in once. The
-easiest way is the GitHub CLI:
+The repository is public on GitHub, so no login is needed:
 
 ```bash
-sudo apt install -y gh
-gh auth login            # GitHub.com → HTTPS → "Login with a web browser"
-gh repo clone joergr72idb/neon-grid ~/neon-grid
+sudo apt install -y git
+git clone https://github.com/joergr72idb/neon-grid.git ~/neon-grid
 ```
-
-`gh auth login` shows a one-time code. On a machine without a browser (web
-server over SSH), open the address it prints on any other computer or your
-phone and enter the code there.
 
 **Without GitHub access** (for example at a show without internet), copy
 the folder from another computer instead, e.g. with a USB stick or:
