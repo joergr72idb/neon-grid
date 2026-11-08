@@ -27,6 +27,24 @@ shared highscore list.*
 *A match in progress: Blaze (cyan) against Nova (orange). Every move leaves
 a light trail; the cycles get faster the longer the match runs.*
 
+### On a smartphone
+
+Real screenshots from an Android phone in Chrome, connected to the game
+access point (`10.42.0.1`, no internet needed):
+
+<p>
+  <img src="docs/images/phone-menu.jpg" width="250" alt="Start screen on a phone: statistics, 'test is waiting for a battle!' and a 'Fight test' button, highscores below">
+  <img src="docs/images/phone-match.jpg" width="250" alt="Portrait match on a phone: countdown in the arena, arrow pad below">
+  <img src="docs/images/phone-win.jpg" width="250" alt="End of a match on a phone: 'YOU WIN - your opponent crashed' with Play again and Menu buttons">
+</p>
+
+*Portrait: menu, countdown with the touch arrow pad, and the result
+screen. You can also swipe across the screen to turn.*
+
+<img src="docs/images/phone-landscape.jpg" width="760" alt="Landscape match on a phone: arena on the left, arrow pad on the right">
+
+*Landscape: arena on the left, arrow pad on the right.*
+
 ## Features
 
 - **Two-player online duels** with matchmaking: the first player waits,
